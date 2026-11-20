@@ -107,7 +107,7 @@ function getVideoAlphaMap(size, options = {}) {
         getEmbeddedAlphaMap(VIDEO_ALPHA_PROFILE) ||
         getEmbeddedAlphaMap(96);
     if (!alphaSource) {
-        throw new Error('缺少 96px Gemini alpha map，无法生成视频水印模板');
+        throw new Error('Thiếu alpha map Gemini 96px, không thể tạo mẫu watermark video');
     }
     const sourceSize = inferSquareAlphaSize(alphaSource, 96);
     const edgeBoost = Number.isFinite(options.edgeBoost)
@@ -1158,10 +1158,10 @@ export function detectDiamondVideoWatermarkFromFrames({
     alphaMapOptions = {}
 }) {
     if (!Array.isArray(frames) || frames.length === 0) {
-        throw new Error('没有可用于检测的视频帧');
+        throw new Error('Không có khung hình video nào để phát hiện');
     }
     if (!candidates.length) {
-        throw new Error(`暂不支持 ${width}x${height} 的视频水印候选`);
+        throw new Error(`Chưa hỗ trợ ứng viên watermark video kích thước ${width}x${height}`);
     }
 
     const perCandidate = new Map(candidates.map((candidate) => [candidate.id, {

@@ -678,7 +678,7 @@ function summarizeVideoProductionDefaults(cleanupArtifact, appArtifact, presetAr
     const hasRelocatedReviewPreset = /function\s+getRelocatedReviewPresetConfig\(/.test(presetText) &&
         /CANVAS_TEMPORAL_MATCH_DELTA_STABILIZE/.test(presetText);
     const reviewPresetAutoApplies = /function\s+maybeApplyRelocatedReviewPreset\(/.test(appText);
-    const reviewPresetMarkedReviewOnly = /复核预设/.test(appText) && /不是默认策略/.test(appText);
+    const reviewPresetMarkedReviewOnly = /复核预设|cấu hình rà soát/.test(appText) && /不是默认策略|không phải chiến lược mặc định/.test(appText);
     const debugAlphaOverrides = [
         '__gwrVideoAlphaLowScale',
         '__gwrVideoAlphaBodyScale',

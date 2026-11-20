@@ -37,11 +37,19 @@ export function pickDebugUploadFile(files) {
     );
 }
 
+export function pickDebugUploadFiles(files) {
+    const list = Array.from(files || []).filter(Boolean);
+    const videos = list.filter((file) => getDebugFileKind(file) === 'video');
+    if (videos.length > 0) return videos;
+    const images = list.filter((file) => getDebugFileKind(file) === 'image');
+    return images;
+}
+
 function openHandoffDb() {
     return new Promise((resolve, reject) => {
         const indexedDb = globalThis.indexedDB;
         if (!indexedDb) {
-            reject(new Error('当前浏览器不支持本地文件暂存，请直接打开目标调试页后重新选择文件。'));
+            reject(new Error('Trình duyệt hiện tại không hỗ trợ lưu tạm tệp cục bộ, hãy mở trực tiếp trang gỡ lỗi đích rồi chọn lại tệp.'));
             return;
         }
 
@@ -52,23 +60,30 @@ function openHandoffDb() {
                 db.createObjectStore(STORE_NAME, { keyPath: 'id' });
             }
         };
-        request.onerror = () => reject(request.error || new Error('无法打开本地文件暂存。'));
+        request.onerror = () => reject(request.error || new Error('Không thể mở bộ lưu tạm tệp cục bộ.'));
         request.onsuccess = () => resolve(request.result);
     });
 }
 
-export async function saveDebugFileHandoff(file, targetKind = getDebugFileKind(file)) {
-    if (!file || !targetKind) {
-        throw new Error('不支持的文件类型。');
+export async function saveDebugFileHandoff(fileOrFiles, targetKind = null) {
+    const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles].filter(Boolean);
+    if (files.length === 0) {
+        throw new Error('Loại tệp không được hỗ trợ.');
+    }
+    const firstFile = files[0];
+    const resolvedKind = targetKind || getDebugFileKind(firstFile);
+    if (!resolvedKind) {
+        throw new Error('Loại tệp không được hỗ trợ.');
     }
 
     const record = {
         id: LATEST_KEY,
-        kind: targetKind,
-        file,
-        name: file.name || '',
-        type: file.type || '',
-        size: Number.isFinite(file.size) ? file.size : 0,
+        kind: resolvedKind,
+        file: firstFile,
+        files,
+        name: files.map((f) => f.name || '').join(', '),
+        type: firstFile.type || '',
+        size: files.reduce((total, f) => total + (Number.isFinite(f.size) ? f.size : 0), 0),
         updatedAt: Date.now()
     };
 
@@ -77,8 +92,8 @@ export async function saveDebugFileHandoff(file, targetKind = getDebugFileKind(f
         const transaction = db.transaction(STORE_NAME, 'readwrite');
         transaction.objectStore(STORE_NAME).put(record);
         transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error || new Error('本地文件暂存失败。'));
-        transaction.onabort = () => reject(transaction.error || new Error('本地文件暂存已取消。'));
+        transaction.onerror = () => reject(transaction.error || new Error('Lưu tạm tệp cục bộ thất bại.'));
+        transaction.onabort = () => reject(transaction.error || new Error('Đã hủy lưu tạm tệp cục bộ.'));
     }).finally(() => db.close());
     return record;
 }
@@ -99,10 +114,10 @@ export async function consumeDebugFileHandoff(expectedKind = null) {
                 store.delete(LATEST_KEY);
             }
         };
-        request.onerror = () => reject(request.error || new Error('读取本地文件暂存失败。'));
+        request.onerror = () => reject(request.error || new Error('Đọc tệp lưu tạm cục bộ thất bại.'));
         transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error || new Error('读取本地文件暂存失败。'));
-        transaction.onabort = () => reject(transaction.error || new Error('读取本地文件暂存已取消。'));
+        transaction.onerror = () => reject(transaction.error || new Error('Đọc tệp lưu tạm cục bộ thất bại.'));
+        transaction.onabort = () => reject(transaction.error || new Error('Đã hủy đọc tệp lưu tạm cục bộ.'));
     }).finally(() => db.close());
 
     return matchedRecord;

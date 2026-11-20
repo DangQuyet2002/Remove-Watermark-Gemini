@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
-  <title>Gemini 视频水印本地处理 MVP</title>
+  <title>Xử lý watermark video Gemini cục bộ (MVP)</title>
   <style>
     :root {
       color-scheme: light;
@@ -453,6 +453,172 @@
       border-top: 1px solid var(--border);
     }
 
+    /* Video Queue Panel */
+    .queue-panel {
+      margin-top: 24px;
+    }
+    .queue-head-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .queue-badge {
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+    .queue-head-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .queue-btn {
+      height: 32px;
+      padding: 0 12px;
+      font-size: 0.82rem;
+      gap: 6px;
+    }
+    .queue-btn.danger {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fca5a5;
+    }
+    .queue-btn.danger:hover:not(:disabled) {
+      background: #fecaca;
+    }
+    .batch-progress-wrapper {
+      padding: 12px 20px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+    }
+    .batch-progress-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+    .queue-list {
+      display: flex;
+      flex-direction: column;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+    .empty-queue {
+      text-align: center;
+      padding: 36px 20px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+    }
+    .empty-queue p {
+      margin: 0;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .queue-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s ease, border-color 0.15s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    .queue-item:last-child {
+      border-bottom: none;
+    }
+    .queue-item:hover {
+      background: #f8fafc;
+    }
+    .queue-item.active {
+      background: #f0fdf4;
+      border-left: 4px solid var(--accent);
+    }
+    .queue-item-thumb {
+      width: 44px;
+      height: 34px;
+      border-radius: 6px;
+      background: #0f172a;
+      display: grid;
+      place-items: center;
+      color: #94a3b8;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .queue-item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+    .queue-item-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .queue-item-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .queue-item-status-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-idle { background: #f1f5f9; color: #475569; }
+    .status-detecting { background: #fef3c7; color: #92400e; }
+    .status-processing { background: #e0e7ff; color: #3730a3; }
+    .status-done { background: #dcfce7; color: #166534; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    .queue-item-progress-track {
+      width: 100%;
+      height: 4px;
+      background: #e2e8f0;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .queue-item-progress-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.15s ease-out;
+    }
+    .queue-item-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .queue-item-btn {
+      height: 28px;
+      padding: 0 10px;
+      font-size: 0.78rem;
+      border-radius: var(--radius-sm);
+    }
+
     /* Responsive */
     @media (max-width: 1024px) {
       .layout { grid-template-columns: 1fr; }
@@ -464,6 +630,10 @@
       .actions { grid-template-columns: 1fr; }
       .actions .primary, .actions .download-link { grid-column: auto; }
       dl div { grid-template-columns: 100px minmax(0, 1fr); }
+      .queue-head-actions { width: 100%; justify-content: flex-start; }
+      .queue-item { grid-template-columns: 1fr; gap: 8px; }
+      .queue-item-thumb { display: none; }
+      .queue-item-actions { justify-content: flex-start; }
     }
   </style>
 </head>
@@ -471,57 +641,99 @@
   <div class="shell">
     <header>
       <div>
-        <h1>Gemini 视频水印本地处理 MVP</h1>
-        <p>WebCodecs + Mediabunny，文件只在浏览器内解码、逐帧处理、重新封装 MP4。</p>
+        <h1>Xử lý watermark video Gemini cục bộ (MVP)</h1>
+        <p>WebCodecs + Mediabunny: tệp chỉ được giải mã, xử lý từng khung hình và đóng gói lại MP4 ngay trong trình duyệt. Hỗ trợ xử lý một video hoặc nhiều video hàng loạt.</p>
       </div>
-      <p>当前范围：右下角 72px Gemini/Veo 风格水印；视频轨重编码，兼容音频轨自动透传。</p>
+      <p>Phạm vi hiện tại: watermark kiểu Gemini/Veo 72px ở góc dưới bên phải; track video được mã hóa lại, track âm thanh tương thích được giữ nguyên.</p>
     </header>
 
     <main class="layout">
-      <section class="workspace" aria-label="视频对比">
+      <section class="workspace" aria-label="So sánh video">
         <div class="panel">
-          <div class="panel-head"><span>Before / After 对比</span><span id="progressText">等待视频</span></div>
+          <div class="panel-head"><span>So sánh Trước / Sau</span><span id="progressText">Chờ video</span></div>
           <div id="comparePlayer" class="compare-player">
             <div class="compare-pane">
               <video id="originalVideo" playsinline preload="metadata"></video>
-              <span class="badge">Before</span>
-              <div id="originalEmpty" class="empty">选择或拖入图片 / 视频</div>
+              <span class="badge">Trước</span>
+              <div id="originalEmpty" class="empty">Chọn hoặc kéo thả ảnh / video</div>
             </div>
             <div class="compare-pane">
               <video id="processedVideo" playsinline preload="metadata" muted></video>
-              <span id="afterBadge" class="badge" hidden>After</span>
-              <div id="processedEmpty" class="empty">导出完成后显示右侧对比</div>
+              <span id="afterBadge" class="badge" hidden>Sau</span>
+              <div id="processedEmpty" class="empty">Kết quả so sánh sẽ hiển thị sau khi xuất xong</div>
             </div>
           </div>
           <div class="compare-controls">
-            <button id="playPauseBtn" class="play-toggle" type="button" data-playing="false" aria-label="播放" disabled></button>
-            <input id="scrubber" type="range" min="0" max="1000" value="0" aria-label="播放进度" disabled>
+            <button id="playPauseBtn" class="play-toggle" type="button" data-playing="false" aria-label="Phát" disabled></button>
+            <input id="scrubber" type="range" min="0" max="1000" value="0" aria-label="Tiến độ phát" disabled>
             <span id="timeLabel" class="time-label">0:00</span>
+          </div>
+        </div>
+
+        <!-- Video Queue Panel -->
+        <div id="queuePanel" class="panel queue-panel">
+          <div class="panel-head">
+            <div class="queue-head-title">
+              <span>Hàng đợi video / Video Queue</span>
+              <span id="queueBadge" class="queue-badge">0 video</span>
+            </div>
+            <div class="queue-head-actions">
+              <button id="processAllBtn" class="primary queue-btn" type="button" disabled>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Xử lý tất cả</span>
+              </button>
+              <button id="cancelBatchBtn" class="danger queue-btn" type="button" style="display: none;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+                <span>Dừng</span>
+              </button>
+              <button id="downloadAllBtn" class="queue-btn" type="button" disabled>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>Tải tất cả</span>
+              </button>
+              <button id="clearQueueBtn" class="queue-btn" type="button" disabled>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>Xóa hết</span>
+              </button>
+            </div>
+          </div>
+          <div id="batchProgressWrapper" class="batch-progress-wrapper" style="display: none;">
+            <div class="batch-progress-info">
+              <span id="batchProgressLabel">Tiến độ hàng loạt:</span>
+              <span id="batchProgressPct">0%</span>
+            </div>
+            <div class="progress"><span id="batchProgressBar"></span></div>
+          </div>
+          <div id="videoQueueList" class="queue-list">
+            <div class="empty-queue" id="emptyQueueMsg">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+              <p><strong>Chưa có video nào trong hàng đợi</strong></p>
+              <span>Chọn hoặc kéo thả nhiều video (MP4, WebM, MOV) để bắt đầu xử lý hàng loạt.</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <aside class="side" aria-label="处理设置">
+      <aside class="side" aria-label="Cài đặt xử lý">
         <div id="dropzone" class="dropzone" data-dragging="false" role="button" tabindex="0">
-          <strong>选择文件</strong>
-          <span class="muted">视频会在本页处理，图片会回到单图对比页。10 秒 1080p MP4 样例最适合当前 MVP。</span>
-          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,video/*" hidden>
+          <strong>Chọn hoặc kéo thả video</strong>
+          <span class="muted">Hỗ trợ chọn nhiều video cùng lúc (MP4, WebM, MOV). Video sẽ được thêm vào hàng đợi bên trái.</span>
+          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,video/*" multiple hidden>
         </div>
 
         <div class="panel">
-          <div class="panel-head">自动处理</div>
+          <div class="panel-head">Xử lý tự động</div>
           <div class="controls">
             <div id="autoPresetSummary" class="auto-summary">
-              <strong>AI 自动处理</strong>
-              <span>选择视频后自动检测水印，导出时使用本地 AI 模型清理。</span>
+              <strong>Xử lý tự động bằng AI</strong>
+              <span>Tự động phát hiện watermark sau khi chọn video, dùng mô hình AI cục bộ để làm sạch khi xuất.</span>
             </div>
-            <div class="progress" aria-label="处理进度"><span id="progressBar"></span></div>
+            <div class="progress" aria-label="Tiến độ xử lý"><span id="progressBar"></span></div>
             <div id="status" class="status" data-tone="info"></div>
             <div class="actions">
-              <button id="detectBtn" type="button">检测水印</button>
-              <button id="resetBtn" type="button">重置</button>
-              <button id="processBtn" class="primary" type="button">自动导出无水印视频</button>
-              <a id="downloadBtn" class="download-link" aria-disabled="true">下载结果</a>
+              <button id="detectBtn" type="button">Phát hiện watermark</button>
+              <button id="resetBtn" type="button">Đặt lại</button>
+              <button id="processBtn" class="primary" type="button">Tự động xuất video không watermark</button>
+              <a id="downloadBtn" class="download-link" aria-disabled="true">Tải kết quả</a>
             </div>
             <div class="internal-controls" hidden>
               <span id="alphaGainValue">1.00</span>
@@ -529,18 +741,18 @@
               <input id="adaptiveAlpha" type="checkbox">
               <input id="highQualityCleanup" type="checkbox">
               <select id="denoiseBackend">
-                <option value="none">关闭</option>
-                <option value="canvas-edge-denoise">Canvas 边缘去噪</option>
-                <option value="canvas-edge-band-denoise">Canvas 边缘带去噪</option>
-                <option value="canvas-edge-core-denoise">Canvas 边缘核心去噪</option>
-                <option value="canvas-footprint-polish">Canvas 足迹抛光</option>
-                <option value="canvas-temporal-delta-stabilize">Canvas 时序 Delta 稳定</option>
-                <option value="canvas-temporal-match-delta-stabilize">Canvas 匹配 Delta 稳定</option>
-                <option value="canvas-temporal-stabilize">Canvas 时序稳定</option>
-                <option value="canvas-texture-repair">Canvas 纹理回填</option>
+                <option value="none">Tắt</option>
+                <option value="canvas-edge-denoise">Canvas khử nhiễu viền</option>
+                <option value="canvas-edge-band-denoise">Canvas khử nhiễu dải viền</option>
+                <option value="canvas-edge-core-denoise">Canvas khử nhiễu lõi viền</option>
+                <option value="canvas-footprint-polish">Canvas đánh bóng vết</option>
+                <option value="canvas-temporal-delta-stabilize">Canvas ổn định Delta theo thời gian</option>
+                <option value="canvas-temporal-match-delta-stabilize">Canvas ổn định Delta khớp</option>
+                <option value="canvas-temporal-stabilize">Canvas ổn định theo thời gian</option>
+                <option value="canvas-texture-repair">Canvas bù kết cấu</option>
                 <option value="allenk-fdncnn-browser-spike">AI FDnCNN ONNX</option>
               </select>
-              <button id="relocatedReviewPresetBtn" type="button">迁移锚点复核预设</button>
+              <button id="relocatedReviewPresetBtn" type="button">Cấu hình rà soát neo di chuyển</button>
               <span id="edgeDenoiseStrengthValue">0.25</span>
               <input id="edgeDenoiseStrength" type="range" min="0" max="1" step="0.05">
               <span id="residualCleanupValue">1.50</span>
@@ -550,16 +762,16 @@
               <input id="allowLowConfidence" type="checkbox">
             </div>
           </div>
-          <div class="note">导出会重新编码视频轨，并在 MP4 支持原音频编码时透传音频轨。</div>
+          <div class="note">Khi xuất, track video sẽ được mã hóa lại; track âm thanh được giữ nguyên nếu MP4 hỗ trợ codec âm thanh gốc.</div>
         </div>
 
         <div class="panel">
-          <div class="panel-head">视频信息</div>
+          <div class="panel-head">Thông tin video</div>
           <div id="metadata"></div>
         </div>
 
         <div class="panel">
-          <div class="panel-head">检测结果</div>
+          <div class="panel-head">Kết quả phát hiện</div>
           <div id="detection"></div>
         </div>
       </aside>

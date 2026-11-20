@@ -23,29 +23,29 @@ import {
 } from './shared/debugFileHandoff.js';
 
 const TEXT = {
-    loading: '正在加载资源...',
-    size: '尺寸',
-    watermark: '检测到的水印',
-    position: '位置',
-    status: '状态',
-    removed: '水印已移除',
-    skipped: '未检测到可移除水印，已保留原图',
-    visibleResidual: '已处理，可能仍有可见残影',
-    possibleContentDamage: '已生成最佳结果，请检查水印区域',
-    mixedQualityWarning: '已生成最佳结果，可能有残影或局部失真',
-    unsupported: '浏览器不支持复制图片',
-    copied: '已复制！',
-    copy: '复制结果',
-    copyFailed: '复制失败',
-    unsupportedFile: '请选择 JPG、PNG、WebP 图片，或 MP4/WebM/MOV 视频。',
-    fileTooLarge: '图片调试入口暂不处理超过 20MB 的图片。视频会进入视频调试页。',
-    skippedLargeImages: '已跳过超过 20MB 的图片。',
-    handoffVideo: '正在进入视频调试流程...',
-    progress: '处理进度',
-    pending: '等待处理',
-    loadingImage: '读取图片...',
-    processing: '正在处理...',
-    processFailed: '处理失败'
+    loading: 'Đang tải tài nguyên...',
+    size: 'Kích thước',
+    watermark: 'Watermark phát hiện được',
+    position: 'Vị trí',
+    status: 'Trạng thái',
+    removed: 'Đã xóa watermark',
+    skipped: 'Không phát hiện watermark có thể xóa, đã giữ nguyên ảnh gốc',
+    visibleResidual: 'Đã xử lý, có thể vẫn còn vết mờ',
+    possibleContentDamage: 'Đã tạo kết quả tốt nhất, hãy kiểm tra vùng watermark',
+    mixedQualityWarning: 'Đã tạo kết quả tốt nhất, có thể còn vết mờ hoặc biến dạng cục bộ',
+    unsupported: 'Trình duyệt không hỗ trợ sao chép ảnh',
+    copied: 'Đã sao chép!',
+    copy: 'Sao chép kết quả',
+    copyFailed: 'Sao chép thất bại',
+    unsupportedFile: 'Vui lòng chọn ảnh JPG, PNG, WebP hoặc video MP4/WebM/MOV.',
+    fileTooLarge: 'Trang gỡ lỗi ảnh chưa xử lý ảnh lớn hơn 20MB. Video sẽ chuyển sang trang gỡ lỗi video.',
+    skippedLargeImages: 'Đã bỏ qua ảnh lớn hơn 20MB.',
+    handoffVideo: 'Đang chuyển sang quy trình gỡ lỗi video...',
+    progress: 'Tiến độ',
+    pending: 'Chờ xử lý',
+    loadingImage: 'Đang đọc ảnh...',
+    processing: 'Đang xử lý...',
+    processFailed: 'Xử lý thất bại'
 };
 
 let enginePromise = null;
@@ -220,9 +220,9 @@ async function handleFiles(files) {
     setStatusMessage('');
 
     const list = Array.from(files || []).filter(Boolean);
-    const videoFile = list.find((file) => getDebugFileKind(file) === 'video');
-    if (videoFile) {
-        await routeVideoFile(videoFile);
+    const videoFiles = list.filter((file) => getDebugFileKind(file) === 'video');
+    if (videoFiles.length > 0) {
+        await routeVideoFiles(videoFiles);
         return;
     }
 
@@ -297,15 +297,15 @@ function processBatch(files) {
     processQueue(batchId);
 }
 
-async function routeVideoFile(file) {
+async function routeVideoFiles(files) {
     try {
         showLoading(TEXT.handoffVideo);
-        await saveDebugFileHandoff(file, 'video');
+        await saveDebugFileHandoff(files, 'video');
         window.location.assign('./video-preview.html?fileHandoff=1');
     } catch (error) {
         hideLoading();
         console.error(error);
-        setStatusMessage(error.message || '无法进入视频调试流程，请打开视频页后重新选择文件。', 'warn');
+        setStatusMessage(error.message || 'Không thể chuyển sang quy trình gỡ lỗi video, hãy mở trang video rồi chọn lại tệp.', 'warn');
     }
 }
 
@@ -320,7 +320,7 @@ async function consumePendingImageHandoff() {
         window.history.replaceState(null, '', window.location.pathname);
     } catch (error) {
         console.warn('image handoff unavailable:', error);
-        setStatusMessage(error.message || '读取图片暂存失败，请重新选择文件。', 'warn');
+        setStatusMessage(error.message || 'Không đọc được ảnh tạm, vui lòng chọn lại tệp.', 'warn');
     }
 }
 
@@ -405,11 +405,11 @@ function createImageCard(item) {
     card.innerHTML = `
         <div class="batch-comparison">
             <div class="batch-pane original">
-                <span class="batch-pane-label">原图</span>
+                <span class="batch-pane-label">Ảnh gốc</span>
                 <img id="original-${item.id}" class="batch-image" draggable="false" alt="" />
             </div>
             <div class="batch-pane processed">
-                <span class="batch-pane-label">处理后</span>
+                <span class="batch-pane-label">Đã xử lý</span>
                 <img id="processed-${item.id}" class="batch-image" draggable="false" alt="" />
             </div>
         </div>
@@ -423,7 +423,7 @@ function createImageCard(item) {
                 <span>${TEXT.copy}</span>
             </button>
             <button id="download-${item.id}" class="batch-button secondary" style="display: none;">
-                下载结果
+                Tải kết quả
             </button>
         </div>
     `;
