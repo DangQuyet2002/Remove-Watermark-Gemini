@@ -33,6 +33,7 @@ import {
     measurePreviewBoundaryMetrics
 } from './previewAlphaCalibration.js';
 import { runImageWatermarkPipeline } from './imageWatermarkPipeline.js';
+import { processSecondaryCatalogWatermark } from './multiRegionRemoval.js';
 import {
     createImageWatermarkPipelineCleanupConfig,
     createImageWatermarkPipelineRequest
@@ -6293,7 +6294,7 @@ export const watermarkProcessorTestInternals = Object.freeze({
     materializeSmallAnchorRelocationCandidate
 });
 
-export function processWatermarkImageData(imageData, options = {}) {
+function processSingleWatermarkImageData(imageData, options = {}) {
     const instrumentationByCandidateId = new Map();
     const result = runImageWatermarkPipeline(createImageWatermarkPipelineRequest({
         imageData,
@@ -6328,5 +6329,18 @@ export function processWatermarkImageData(imageData, options = {}) {
         instrumentation: selectedCandidateId == null
             ? null
             : instrumentationByCandidateId.get(selectedCandidateId) ?? null
+    });
+}
+
+export function processWatermarkImageData(imageData, options = {}) {
+    const processOne = (inputImageData, overrides = {}) =>
+        processSingleWatermarkImageData(inputImageData, {
+            ...options,
+            ...overrides
+        });
+    return processSecondaryCatalogWatermark({
+        firstResult: processOne(imageData),
+        options,
+        processOne
     });
 }

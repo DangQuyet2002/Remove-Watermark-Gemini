@@ -114,6 +114,14 @@ export interface WatermarkDecisionPathMeta {
     evaluation?: unknown;
 }
 
+export interface ProcessedWatermarkRegionMeta {
+    position: WatermarkPosition;
+    config: WatermarkConfig | null;
+    source: string;
+    qualityStatus: string | null;
+    detection: WatermarkDetectionMeta;
+}
+
 export interface WatermarkMeta {
     applied: boolean;
     skipReason: string | null;
@@ -133,10 +141,19 @@ export interface WatermarkMeta {
     bestEffortReason?: string | null;
     retryRecommended?: boolean | null;
     decisionPath?: WatermarkDecisionPathMeta | null;
+    processedRegionCount?: number;
+    watermarkRegions?: ProcessedWatermarkRegionMeta[];
+    secondaryWatermark?: {
+        detected: boolean;
+        applied: boolean;
+        position: WatermarkPosition;
+        reason?: string;
+    };
 }
 
 export interface RemoveOptions {
     adaptiveMode?: 'auto' | 'always' | 'never' | 'off';
+    multiRegion?: boolean;
     aggressiveLocatedFallback?: boolean;
     locatedAggressiveRemoval?: boolean;
     engine?: WatermarkEngine;

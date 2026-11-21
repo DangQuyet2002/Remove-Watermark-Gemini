@@ -26,7 +26,7 @@ export function createInitialPipelineContext({
     }
 
     const defaultConfig = detectConfig(originalImageData.width, originalImageData.height);
-    const resolvedConfig = resolveConfig({
+    const resolvedConfig = options.secondaryCatalogConfig ?? resolveConfig({
         imageData: originalImageData,
         defaultConfig,
         alpha48,
