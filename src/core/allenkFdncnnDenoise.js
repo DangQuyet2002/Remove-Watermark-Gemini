@@ -583,6 +583,7 @@ function blendAllenkDenoisedRoi({
     originalData,
     denoisedData,
     weights,
+    contourOverrideWeights = null,
     width = 0,
     height = 0,
     preserveHighpassStrength = 0,
@@ -612,9 +613,16 @@ function blendAllenkDenoisedRoi({
 
     for (let pixel = 0; pixel < pixelCount; pixel++) {
         const rawWeight = clamp(weights[pixel] || 0, 0, 1);
-        const structureFactor = structureGuard
+        let structureFactor = structureGuard
             ? Math.max(0.08, 1 - (structureGuard[pixel] || 0) * 0.92)
             : 1;
+        if (structureGuard && contourOverrideWeights) {
+            const contourWeight = clamp(contourOverrideWeights[pixel] || 0, 0, 1);
+            if (contourWeight > 0.35) {
+                const contourFloor = 0.08 + clamp((contourWeight - 0.35) / 0.5, 0, 1) * 0.78;
+                structureFactor = Math.max(structureFactor, contourFloor);
+            }
+        }
         const weight = rawWeight * structureFactor;
         if (weight <= 0) continue;
 

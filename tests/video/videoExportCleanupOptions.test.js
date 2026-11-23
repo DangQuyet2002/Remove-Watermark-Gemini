@@ -183,3 +183,49 @@ test('processVideoWatermarkFrame should process only the active watermark track'
         index % 4 !== 3 && value < 100
     )));
 });
+
+test('processVideoWatermarkFrame should remove both watermarks when two logos appear simultaneously on the same frame', async () => {
+    const ctx = createImageContext(96, 64);
+    const relocated = {
+        candidate: { id: 'relocated-16' },
+        position: { x: 4, y: 4, width: 16, height: 16 },
+        alphaMap: getVideoAlphaMap(16),
+        alphaSeed: { seedGain: 1 },
+        meanConfidence: 0.4
+    };
+    const standard = {
+        candidate: { id: 'standard-12' },
+        position: { x: 76, y: 48, width: 12, height: 12 },
+        alphaMap: getVideoAlphaMap(12),
+        alphaSeed: { seedGain: 1 },
+        meanConfidence: 0.35
+    };
+    applyWhiteWatermark(ctx, relocated.alphaMap, relocated.position);
+    applyWhiteWatermark(ctx, standard.alphaMap, standard.position);
+    const relocatedWatermarkedMax = Math.max(...ctx.getImageData(4, 4, 16, 16).data.filter((_, i) => i % 4 !== 3));
+    const standardWatermarkedMax = Math.max(...ctx.getImageData(76, 48, 12, 12).data.filter((_, i) => i % 4 !== 3));
+
+    const result = await videoExportModule.processVideoWatermarkFrame?.(
+        ctx,
+        { ...relocated, detections: [relocated, standard] },
+        new Map(),
+        {
+            adaptiveAlpha: false,
+            residualCleanupStrength: 0,
+            highQualityCleanup: false,
+            denoiseBackend: VIDEO_DENOISE_BACKENDS.NONE,
+            edgeDenoiseStrength: 0,
+            textureRepair: false,
+            textureRepairStrength: 0,
+            highConfidenceThreshold: 0.14,
+            lowConfidenceThreshold: 0.035
+        }
+    );
+
+    const relocatedCleanedMax = Math.max(...ctx.getImageData(4, 4, 16, 16).data.filter((_, i) => i % 4 !== 3));
+    const standardCleanedMax = Math.max(...ctx.getImageData(76, 48, 12, 12).data.filter((_, i) => i % 4 !== 3));
+
+    assert.equal(result?.processedTrackCount, 2);
+    assert.ok(relocatedCleanedMax < relocatedWatermarkedMax - 15);
+    assert.ok(standardCleanedMax < standardWatermarkedMax - 15);
+});

@@ -44,9 +44,10 @@ test('shouldUseRelocatedReviewPreset should require confident relocated detectio
     }, { width: 1920, height: 1080 }), true);
 });
 
-test('getRelocatedReviewPresetConfig should keep relocated anchors on the footprint polish path', () => {
+test('getRelocatedReviewPresetConfig should use AI FDnCNN cleanup on relocated anchors', () => {
     assert.deepEqual({
         label: getRelocatedReviewPresetConfig().label,
+        adaptiveAlpha: getRelocatedReviewPresetConfig().adaptiveAlpha,
         denoiseBackend: getRelocatedReviewPresetConfig().denoiseBackend,
         edgeDenoiseStrength: getRelocatedReviewPresetConfig().edgeDenoiseStrength,
         residualCleanupStrength: getRelocatedReviewPresetConfig().residualCleanupStrength,
@@ -54,24 +55,26 @@ test('getRelocatedReviewPresetConfig should keep relocated anchors on the footpr
         allowLowConfidence: getRelocatedReviewPresetConfig().allowLowConfidence
     }, {
         label: 'Xử lý tự động bằng AI',
-        denoiseBackend: VIDEO_DENOISE_BACKENDS.CANVAS_FOOTPRINT_POLISH,
-        edgeDenoiseStrength: 1,
-        residualCleanupStrength: 1.2,
+        adaptiveAlpha: true,
+        denoiseBackend: VIDEO_DENOISE_BACKENDS.ALLENK_FDNCNN_BROWSER_SPIKE,
+        edgeDenoiseStrength: 1.85,
+        residualCleanupStrength: 0.65,
         videoBitrateMbps: 12,
         allowLowConfidence: true
     });
 });
 
-test('getAutomaticVideoPresetConfig should keep normal detections on conservative auto settings', () => {
+test('getAutomaticVideoPresetConfig should keep normal detections on AI auto settings', () => {
     const preset = getAutomaticVideoPresetConfig({
         isConfident: true,
         position: { width: 72, marginRight: 72, marginBottom: 72 }
     }, { width: 1920, height: 1080 });
 
     assert.equal(preset.id, 'standard-auto');
+    assert.equal(preset.adaptiveAlpha, true);
     assert.equal(preset.denoiseBackend, VIDEO_DENOISE_BACKENDS.ALLENK_FDNCNN_BROWSER_SPIKE);
-    assert.equal(preset.edgeDenoiseStrength, 1.8);
-    assert.equal(preset.residualCleanupStrength, 0.4);
+    assert.equal(preset.edgeDenoiseStrength, 1.85);
+    assert.equal(preset.residualCleanupStrength, 0.55);
     assert.deepEqual(preset, getStandardAutoPresetConfig());
 });
 
@@ -83,18 +86,19 @@ test('getAutomaticVideoPresetConfig should tune cleanup for Veo text detections'
     }, { width: 720, height: 1280 });
 
     assert.equal(preset.id, 'veo-text-auto');
+    assert.equal(preset.adaptiveAlpha, true);
     assert.equal(preset.denoiseBackend, VIDEO_DENOISE_BACKENDS.ALLENK_FDNCNN_BROWSER_SPIKE);
-    assert.equal(preset.edgeDenoiseStrength, 1.45);
-    assert.equal(preset.residualCleanupStrength, 0.9);
+    assert.equal(preset.edgeDenoiseStrength, 1.6);
+    assert.equal(preset.residualCleanupStrength, 0.95);
     assert.equal(preset.allowLowConfidence, false);
 });
 
-test('getAutomaticVideoPresetConfig should switch relocated detections to review preset', () => {
+test('getAutomaticVideoPresetConfig should switch relocated detections to AI review preset', () => {
     const preset = getAutomaticVideoPresetConfig({
         isConfident: true,
         position: { width: 72, marginRight: 144, marginBottom: 144 }
     }, { width: 1920, height: 1080 });
 
     assert.equal(preset.id, 'relocated-review');
-    assert.equal(preset.denoiseBackend, VIDEO_DENOISE_BACKENDS.CANVAS_FOOTPRINT_POLISH);
+    assert.equal(preset.denoiseBackend, VIDEO_DENOISE_BACKENDS.ALLENK_FDNCNN_BROWSER_SPIKE);
 });

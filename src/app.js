@@ -3,6 +3,9 @@ import {
     detectWatermarkConfig,
     calculateWatermarkPosition
 } from './core/watermarkEngine.js';
+import { applyImageThoroughCleanup } from './core/imageAiDenoiseCleanup.js';
+import { createAllenkFdncnnOnnxRuntime } from './core/allenkFdncnnOnnxRuntime.js';
+import { resolveAllenkFdncnnRuntimeProfile } from './video/videoDenoiseRuntimePolicy.js';
 import { WatermarkWorkerClient, canUseWatermarkWorker } from './core/workerClient.js';
 import {
     isConfirmedWatermarkDecision,
@@ -28,7 +31,9 @@ const TEXT = {
     watermark: 'Watermark phát hiện được',
     position: 'Vị trí',
     status: 'Trạng thái',
-    removed: 'Đã xóa watermark',
+    removed: 'Đã xóa sạch watermark',
+    removedMulti: 'Đã xóa sạch {count} logo Gemini',
+    removedAiSuffix: ' (AI FDnCNN)',
     skipped: 'Không phát hiện watermark có thể xóa, đã giữ nguyên ảnh gốc',
     visibleResidual: 'Đã xử lý, có thể vẫn còn vết mờ',
     possibleContentDamage: 'Đã tạo kết quả tốt nhất, hãy kiểm tra vùng watermark',
@@ -71,6 +76,90 @@ const resetBtn = document.getElementById('resetBtn');
 const batchResetBtn = document.getElementById('batchResetBtn');
 const processedOverlay = document.getElementById('processedOverlay');
 const sliderHandle = document.getElementById('sliderHandle');
+const thoroughModeToggle = document.getElementById('thoroughModeToggle');
+
+const ALLENK_FDNCNN_WASM_PATHS = Object.freeze({
+    mjs: './onnxruntime/ort-wasm-simd-threaded.js',
+    wasm: './onnxruntime/ort-wasm-simd-threaded.wasm'
+});
+const ALLENK_FDNCNN_WEBGPU_WASM_PATHS = Object.freeze({
+    mjs: './onnxruntime/ort-wasm-simd-threaded.asyncify.mjs',
+    wasm: './onnxruntime/ort-wasm-simd-threaded.asyncify.wasm'
+});
+const allenkFdncnnRuntimePromises = new Map();
+
+function isLikelyJavascriptMime(contentType) {
+    const mime = String(contentType || '').split(';')[0].trim().toLowerCase();
+    return mime === 'application/javascript'
+        || mime === 'text/javascript'
+        || mime === 'application/ecmascript'
+        || mime === 'text/ecmascript'
+        || mime.endsWith('+javascript');
+}
+
+async function preflightWebGpuRuntimeAssets(paths) {
+    try {
+        const response = await fetch(paths.mjs, { cache: 'no-store' });
+        if (!response.ok) return { ok: false };
+        const contentType = response.headers.get('content-type') || '';
+        return { ok: isLikelyJavascriptMime(contentType) };
+    } catch {
+        return { ok: false };
+    }
+}
+
+async function loadAllenkFdncnnRuntime(runtimeProfile = resolveAllenkFdncnnRuntimeProfile()) {
+    const profile = runtimeProfile || resolveAllenkFdncnnRuntimeProfile();
+    if (!allenkFdncnnRuntimePromises.has(profile.id)) {
+        const runtimePromise = (async () => {
+            const response = await fetch(profile.modelUrl);
+            if (!response.ok) {
+                throw new Error(`Không thể tải mô hình AI: ${response.status}`);
+            }
+            const modelBytes = new Uint8Array(await response.arrayBuffer());
+            if (navigator.gpu && window.__gwrDisableWebGpuDenoise !== true) {
+                try {
+                    const preflight = await preflightWebGpuRuntimeAssets(ALLENK_FDNCNN_WEBGPU_WASM_PATHS);
+                    if (preflight.ok) {
+                        const webgpuOrt = await import('onnxruntime-web/webgpu');
+                        return await createAllenkFdncnnOnnxRuntime({
+                            ort: webgpuOrt,
+                            modelBytes,
+                            executionProvider: 'webgpu',
+                            wasmPaths: ALLENK_FDNCNN_WEBGPU_WASM_PATHS,
+                            inputName: 'fdncnn_input',
+                            outputName: 'fdncnn_output',
+                            inputShape: profile.inputShape,
+                            outputShape: profile.outputShape
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Image WebGPU AI runtime unavailable, falling back to WASM:', error);
+                }
+            }
+            return createAllenkFdncnnOnnxRuntime({
+                modelBytes,
+                executionProvider: 'wasm',
+                wasmPaths: ALLENK_FDNCNN_WASM_PATHS,
+                inputName: 'fdncnn_input',
+                outputName: 'fdncnn_output',
+                inputShape: profile.inputShape,
+                outputShape: profile.outputShape
+            });
+        })();
+        allenkFdncnnRuntimePromises.set(profile.id, runtimePromise);
+        runtimePromise.catch(() => {
+            if (allenkFdncnnRuntimePromises.get(profile.id) === runtimePromise) {
+                allenkFdncnnRuntimePromises.delete(profile.id);
+            }
+        });
+    }
+    return allenkFdncnnRuntimePromises.get(profile.id);
+}
+
+function isThoroughModeEnabled() {
+    return thoroughModeToggle ? thoroughModeToggle.checked : true;
+}
 
 async function getEngine() {
     if (!enginePromise) {
@@ -185,6 +274,15 @@ function setupEventListeners() {
 
     resetBtn.addEventListener('click', reset);
     batchResetBtn.addEventListener('click', reset);
+    if (thoroughModeToggle) {
+        thoroughModeToggle.addEventListener('change', () => {
+            if (currentItem?.file) {
+                processSingle(currentItem);
+            } else if (imageQueue.length > 0) {
+                processBatch(imageQueue.map((item) => item.file));
+            }
+        });
+    }
     window.addEventListener('beforeunload', () => {
         cleanupBatchItems();
         disableWorkerClient('beforeunload');
@@ -342,8 +440,17 @@ function renderSingleImageMeta(item) {
 
 function getProcessedStatusPresentation(item) {
     const presentation = resolveProcessedStatusPresentation(item);
+    const meta = item?.processedMeta;
+    const regionCount = Number(meta?.processedRegionCount) || 0;
+    let label = TEXT[presentation.messageKey];
+    if (presentation.messageKey === 'removed' && regionCount > 1) {
+        label = TEXT.removedMulti.replace('{count}', String(regionCount));
+    }
+    if (meta?.aiCleanupApplied && isConfirmedWatermarkDecision(item)) {
+        label = `${label}${TEXT.removedAiSuffix}`;
+    }
     return {
-        label: TEXT[presentation.messageKey],
+        label,
         tone: presentation.tone
     };
 }
@@ -357,11 +464,19 @@ function renderSingleProcessedMeta(item) {
     );
     const showWatermarkInfo = watermarkInfo && isConfirmedWatermarkDecision(item);
     const statusPresentation = getProcessedStatusPresentation(item);
+    const regions = Array.isArray(item?.processedMeta?.watermarkRegions)
+        ? item.processedMeta.watermarkRegions
+        : [];
+    const multiRegionsHtml = regions.length > 1
+        ? `<p>${TEXT.watermark}: ${regions.map((r) => `${r.position.width}x${r.position.height}@(${r.position.x},${r.position.y})`).join(' + ')}</p>`
+        : `
+            ${showWatermarkInfo ? `<p>${TEXT.watermark}: ${watermarkInfo.size}x${watermarkInfo.size}</p>` : ''}
+            ${showWatermarkInfo ? `<p>${TEXT.position}: (${watermarkInfo.position.x},${watermarkInfo.position.y})</p>` : ''}
+        `;
 
     processedInfo.innerHTML = `
         <p>${TEXT.size}: ${item.originalImg.width}x${item.originalImg.height}</p>
-        ${showWatermarkInfo ? `<p>${TEXT.watermark}: ${watermarkInfo.size}x${watermarkInfo.size}</p>` : ''}
-        ${showWatermarkInfo ? `<p>${TEXT.position}: (${watermarkInfo.position.x},${watermarkInfo.position.y})</p>` : ''}
+        ${multiRegionsHtml}
         <p class="${statusPresentation.tone === 'warning' ? 'text-warning' : ''}">${TEXT.status}: ${statusPresentation.label}</p>
     `;
 }
@@ -518,10 +633,67 @@ async function processQueue(batchId) {
     }
 }
 
+function createScratchCanvas(width, height) {
+    if (typeof OffscreenCanvas !== 'undefined') {
+        return new OffscreenCanvas(width, height);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+}
+
+async function applyMainThreadAiCleanupOnBlob(processedBlob, meta, fallbackImage) {
+    const engine = await getEngine();
+    const decoded = await loadImage(processedBlob).catch(() => fallbackImage);
+    const width = decoded.width;
+    const height = decoded.height;
+    const canvas = createScratchCanvas(width, height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(decoded, 0, 0);
+    if (decoded !== fallbackImage && decoded?.src?.startsWith('blob:')) {
+        URL.revokeObjectURL(decoded.src);
+    }
+
+    const updatedMeta = await applyImageThoroughCleanup({
+        ctx,
+        canvasWidth: width,
+        canvasHeight: height,
+        engine,
+        meta,
+        options: {
+            thoroughMode: true,
+            resolveAiDenoiseRuntime: loadAllenkFdncnnRuntime
+        }
+    });
+    const cleanedBlob = await canvasToBlob(canvas);
+    return {
+        blob: cleanedBlob,
+        meta: updatedMeta
+    };
+}
+
 async function processImageWithBestPath(file, fallbackImage, options = {}) {
+    const thoroughMode = options.thoroughMode ?? isThoroughModeEnabled();
+    const workerOptions = {
+        adaptiveMode: 'always',
+        multiRegion: true,
+        maxRegions: 4,
+        ...options,
+        thoroughMode: false
+    };
+
     if (workerClient) {
         try {
-            return await workerClient.processBlob(file, options);
+            const workerResult = await workerClient.processBlob(file, workerOptions);
+            if (!thoroughMode) {
+                return workerResult;
+            }
+            return await applyMainThreadAiCleanupOnBlob(
+                workerResult.blob,
+                workerResult.meta,
+                fallbackImage
+            );
         } catch (error) {
             console.warn('worker process failed, fallback to main thread:', error);
             disableWorkerClient(error);
@@ -529,7 +701,11 @@ async function processImageWithBestPath(file, fallbackImage, options = {}) {
     }
 
     const engine = await getEngine();
-    const canvas = await engine.removeWatermarkFromImage(fallbackImage, options);
+    const canvas = await engine.removeWatermarkFromImage(fallbackImage, {
+        ...workerOptions,
+        thoroughMode,
+        ...(thoroughMode ? { resolveAiDenoiseRuntime: loadAllenkFdncnnRuntime } : {})
+    });
     const blob = await canvasToBlob(canvas);
     return {
         blob,

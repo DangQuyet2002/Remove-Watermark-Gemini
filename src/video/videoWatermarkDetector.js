@@ -293,7 +293,10 @@ function evaluateAutoAlphaShapeOption({
 
     for (const frame of frames) {
         const winner = winnerByTimestamp.get(frame.timestamp);
-        if (winner && winner.candidateId !== candidate.id && winner.confidence > 0.08) continue;
+        if (winner && winner.candidateId !== candidate.id && winner.confidence > 0.08) {
+            const candidatePresence = scoreVideoWatermarkFrame(frame.imageData, position, scoreAlphaMap);
+            if (candidatePresence.confidence < 0.08) continue;
+        }
 
         const restored = createRestoredVideoRoi(
             frame.imageData,
@@ -1030,7 +1033,10 @@ function estimateAlphaSeedFromFrames(frames, position, alphaMap, frameWinners, c
 
     for (const frame of frames) {
         const winner = winnerByTimestamp.get(frame.timestamp);
-        if (winner && winner.candidateId !== candidateId && winner.confidence > 0.08) continue;
+        if (winner && winner.candidateId !== candidateId && winner.confidence > 0.08) {
+            const candidatePresence = scoreVideoWatermarkFrame(frame.imageData, position, alphaMap);
+            if (candidatePresence.confidence < 0.08) continue;
+        }
 
         const estimate = estimateFrameAlphaGain(frame.imageData, position, alphaMap);
         if (!estimate) continue;
@@ -1467,6 +1473,33 @@ export async function detectDiamondVideoWatermarkFromFramesAsync({
     };
 }
 
+function doPositionsOverlapHeavily(left, right) {
+    if (!left || !right) return false;
+    const lw = Number(left.width ?? left.size) || 0;
+    const lh = Number(left.height ?? left.size) || 0;
+    const rw = Number(right.width ?? right.size) || 0;
+    const rh = Number(right.height ?? right.size) || 0;
+    if (lw <= 0 || lh <= 0 || rw <= 0 || rh <= 0) return false;
+    const interW = Math.max(0, Math.min(left.x + lw, right.x + rw) - Math.max(left.x, right.x));
+    const interH = Math.max(0, Math.min(left.y + lh, right.y + rh) - Math.max(left.y, right.y));
+    const smallerArea = Math.min(lw * lh, rw * rh);
+    return smallerArea > 0 && (interW * interH) / smallerArea >= 0.5;
+}
+
+function mergeNonOverlappingVideoDetections(primaryDetections = [], extraDetections = []) {
+    const merged = [...primaryDetections];
+    for (const candidate of extraDetections) {
+        if (!candidate?.position || !candidate?.alphaMap) continue;
+        const overlaps = merged.some((existing) =>
+            doPositionsOverlapHeavily(existing?.position, candidate.position)
+        );
+        if (!overlaps) {
+            merged.push(candidate);
+        }
+    }
+    return merged;
+}
+
 export function selectVideoWatermarkDetection({
     diamondDetection = null,
     veoTextDetection = null,
@@ -1477,9 +1510,39 @@ export function selectVideoWatermarkDetection({
     const veoStrong = veoTextDetection?.isConfident === true;
     const diamondStrong = diamondDetection?.isConfident === true;
 
+    const veoTracks = veoTextDetection
+        ? (Array.isArray(veoTextDetection.detections) && veoTextDetection.detections.length > 0
+            ? veoTextDetection.detections
+            : [{
+                watermarkKind: veoTextDetection.watermarkKind || 'veo-text',
+                position: veoTextDetection.position,
+                alphaMap: veoTextDetection.alphaMap,
+                alphaSeed: veoTextDetection.alphaSeed,
+                template: veoTextDetection.template,
+                candidate: veoTextDetection.candidate,
+                meanConfidence: veoBestNcc
+            }])
+        : [];
+    const diamondTracks = diamondDetection
+        ? (Array.isArray(diamondDetection.detections) && diamondDetection.detections.length > 0
+            ? diamondDetection.detections
+            : [{
+                watermarkKind: diamondDetection.watermarkKind || 'diamond',
+                position: diamondDetection.position,
+                alphaMap: diamondDetection.alphaMap,
+                alphaSeed: diamondDetection.alphaSeed,
+                candidate: diamondDetection.candidate,
+                meanConfidence: diamondBestConfidence
+            }])
+        : [];
+
     if (veoStrong && (!diamondStrong || diamondBestConfidence < diamondWeakConfidenceCeiling || veoBestNcc > diamondBestConfidence)) {
+        const detections = diamondStrong
+            ? mergeNonOverlappingVideoDetections(veoTracks, diamondTracks)
+            : veoTracks;
         return {
             ...veoTextDetection,
+            ...(detections.length > 1 ? { detections } : {}),
             summary: {
                 ...veoTextDetection.summary,
                 alternatives: {
@@ -1490,8 +1553,12 @@ export function selectVideoWatermarkDetection({
     }
 
     if (diamondDetection) {
+        const detections = (diamondStrong && veoStrong)
+            ? mergeNonOverlappingVideoDetections(diamondTracks, veoTracks)
+            : diamondDetection.detections;
         return {
             ...diamondDetection,
+            detections,
             summary: {
                 ...diamondDetection.summary,
                 alternatives: {

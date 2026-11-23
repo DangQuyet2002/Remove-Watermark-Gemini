@@ -1119,6 +1119,16 @@ function prepareAllenkFdncnnRuntimeInput(ctx, position, alphaMap, {
         paddedRoi,
         visible,
         padded,
+        roiWeights,
+        contourOverrideWeights: options.strength > 1.2
+            ? embedAllenkRoiWeights({
+                roiWeights,
+                roiWidth: position.width,
+                roiHeight: position.height,
+                paddedRoi,
+                blurSigma: 0
+            })
+            : null,
         weights
     };
 }
@@ -1186,6 +1196,7 @@ function applyAllenkFdncnnDenoisedPatch(ctx, prepared, denoised) {
         originalData,
         denoisedData: denoised.imageData.data,
         weights: prepared.weights,
+        contourOverrideWeights: prepared.contourOverrideWeights || null,
         width: prepared.padded.width,
         height: prepared.padded.height,
         protectStructure: true

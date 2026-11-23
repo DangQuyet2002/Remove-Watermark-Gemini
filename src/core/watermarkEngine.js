@@ -4,6 +4,7 @@
  */
 
 import { getEmbeddedAlphaMap } from './embeddedAlphaMaps.js';
+import { applyImageThoroughCleanup } from './imageAiDenoiseCleanup.js';
 import { removeRepeatedWatermarkLayers } from './multiPassRemoval.js';
 import { processWatermarkImageData } from './watermarkProcessor.js';
 import {
@@ -133,6 +134,8 @@ export class WatermarkEngine {
                 'outline-dark': alpha96OutlineDark
             },
             adaptiveMode: options.adaptiveMode,
+            multiRegion: options.multiRegion,
+            maxRegions: options.maxRegions,
             debugTimings: options.debugTimings === true,
             getAlphaMap: (size) => this.alphaMaps[size] || interpolateAlphaMap(alpha96, 96, size)
         });
@@ -140,7 +143,15 @@ export class WatermarkEngine {
         const writeStartedAt = now();
         ctx.putImageData(result.imageData, 0, 0);
         const putImageDataMs = now() - writeStartedAt;
-        canvas.__watermarkMeta = result.meta;
+        const finalMeta = await applyImageThoroughCleanup({
+            ctx,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            engine: this,
+            meta: result.meta,
+            options
+        });
+        canvas.__watermarkMeta = finalMeta;
         canvas.__watermarkTiming = {
             drawMs,
             getImageDataMs,

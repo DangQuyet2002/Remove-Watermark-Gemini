@@ -155,3 +155,64 @@ test('a second catalog watermark added to a real Gemini fixture is processed', a
     assert.ok(spatialScore(result.imageData, alpha48, canonicalPosition) < 0);
     assert.ok(spatialScore(result.imageData, alpha48, largeMarginPosition) < 0);
 });
+
+test('adaptive multi-region removal clears a shifted non-catalog second Gemini logo', () => {
+    const alpha96 = createSyntheticAlphaMap(96);
+    const alpha48 = interpolateAlphaMap(alpha96, 96, 48);
+    const shiftedSecondPosition = { x: 920, y: 900, width: 48, height: 48 };
+    const imageData = createPatternImageData(1024, 1024);
+    applySyntheticWatermark(imageData, alpha48, canonicalPosition);
+    applySyntheticWatermark(imageData, alpha48, shiftedSecondPosition);
+
+    const result = processWatermarkImageData(imageData, {
+        alpha48,
+        alpha96,
+        adaptiveMode: 'always',
+        getAlphaMap: (size) => interpolateAlphaMap(alpha96, 96, size)
+    });
+
+    assert.equal(result.meta.processedRegionCount, 2);
+    assert.ok(Math.abs(spatialScore(result.imageData, alpha48, canonicalPosition)) < 0.15);
+    assert.ok(Math.abs(spatialScore(result.imageData, alpha48, shiftedSecondPosition)) < 0.15);
+});
+
+test('multi-region removal clears three independent Gemini logos in one image', () => {
+    const alpha96 = createSyntheticAlphaMap(96);
+    const alpha48 = interpolateAlphaMap(alpha96, 96, 48);
+    const retained96 = { x: 736, y: 736, width: 96, height: 96 };
+    const imageData = createPatternImageData(1024, 1024);
+    applySyntheticWatermark(imageData, alpha48, canonicalPosition);
+    applySyntheticWatermark(imageData, alpha48, largeMarginPosition);
+    applySyntheticWatermark(imageData, alpha96, retained96);
+
+    const result = processWatermarkImageData(imageData, {
+        alpha48,
+        alpha96,
+        adaptiveMode: 'never',
+        getAlphaMap: (size) => interpolateAlphaMap(alpha96, 96, size)
+    });
+
+    assert.equal(result.meta.processedRegionCount, 3);
+    assert.ok(Math.abs(spatialScore(result.imageData, alpha48, canonicalPosition)) < 0.12);
+    assert.ok(Math.abs(spatialScore(result.imageData, alpha48, largeMarginPosition)) < 0.12);
+    assert.ok(Math.abs(spatialScore(result.imageData, alpha96, retained96)) < 0.12);
+});
+
+test('stacked double-watermarked logo at the exact same anchor is cleared completely', () => {
+    const alpha96 = createSyntheticAlphaMap(96);
+    const alpha48 = interpolateAlphaMap(alpha96, 96, 48);
+    const imageData = createPatternImageData(1024, 1024);
+    // Stamp two Gemini logos on top of each other at the exact same position
+    applySyntheticWatermark(imageData, alpha48, canonicalPosition);
+    applySyntheticWatermark(imageData, alpha48, canonicalPosition);
+
+    const result = processWatermarkImageData(imageData, {
+        alpha48,
+        alpha96,
+        adaptiveMode: 'never',
+        getAlphaMap: (size) => interpolateAlphaMap(alpha96, 96, size)
+    });
+
+    assert.equal(result.meta.applied, true);
+    assert.ok(Math.abs(spatialScore(result.imageData, alpha48, canonicalPosition)) < 0.15);
+});

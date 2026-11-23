@@ -1,9 +1,9 @@
 import * as esbuild from 'esbuild';
-import { cpSync, rmSync, existsSync, mkdirSync, watch, statSync, createReadStream, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, rmSync, existsSync, mkdirSync, watch, statSync, createReadStream, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
-import { extname, join, normalize, resolve } from 'node:path';
+import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { execSync } from 'child_process';
 
 const require = createRequire(import.meta.url);
@@ -137,12 +137,25 @@ function writeExtensionManifest(outputDir = EXTENSION_DIR, options = { profile: 
   writeFileSync(join(outputDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
+function copyTreeOverwrite(src, dest) {
+  const info = statSync(src);
+  if (info.isDirectory()) {
+    mkdirSync(dest, { recursive: true });
+    for (const entry of readdirSync(src)) {
+      copyTreeOverwrite(join(src, entry), join(dest, entry));
+    }
+    return;
+  }
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(dest, readFileSync(src));
+}
+
 function copyExtensionStaticAssets(outputDir = EXTENSION_DIR) {
   mkdirSync(join(outputDir, 'assets'), { recursive: true });
-  cpSync('src/extension/assets', join(outputDir, 'assets'), { recursive: true });
-  cpSync('src/extension/popup.html', join(outputDir, 'popup.html'));
-  cpSync('src/extension/popup.css', join(outputDir, 'popup.css'));
-  cpSync('src/extension/popup.js', join(outputDir, 'popup.js'));
+  copyTreeOverwrite('src/extension/assets', join(outputDir, 'assets'));
+  copyTreeOverwrite('src/extension/popup.html', join(outputDir, 'popup.html'));
+  copyTreeOverwrite('src/extension/popup.css', join(outputDir, 'popup.css'));
+  copyTreeOverwrite('src/extension/popup.js', join(outputDir, 'popup.js'));
 }
 
 function cleanDistBuildOutputs() {
@@ -161,7 +174,13 @@ function cleanDistBuildOutputs() {
     'workers'
   ]) {
     const target = join('dist', entry);
-    if (existsSync(target)) rmSync(target, { recursive: true });
+    if (existsSync(target)) {
+      try {
+        rmSync(target, { recursive: true, force: true });
+      } catch {
+        // Ignore locked unpacked extension files on Windows; subsequent writes overwrite in place.
+      }
+    }
   }
 }
 
@@ -171,7 +190,7 @@ const copyAssetsPlugin = {
     build.onEnd(() => {
       console.log('📂 Syncing static assets...');
       try {
-        cpSync('public', 'dist', { recursive: true });
+        copyTreeOverwrite('public', 'dist');
       } catch (err) {
         console.error('❌ Asset copy failed:', err);
       }
@@ -298,7 +317,7 @@ const websiteCtx = await esbuild.context({
   entryPoints: ['src/app.js'],
   outfile: 'dist/app.js',
   platform: 'browser',
-  target: ['es2020'],
+  target: ['es2022'],
   banner: { js: jsBanner },
   sourcemap: !isProd,
   plugins: [copyAssetsPlugin],
@@ -444,7 +463,7 @@ if (isProd) {
       debounceTimer = setTimeout(() => {
         console.log(`📂 Asset changed: ${filename}`);
         try {
-          cpSync(dir, dest, { recursive: true });
+          copyTreeOverwrite(dir, dest);
         } catch (e) {
           console.error('Sync failed:', e);
         }

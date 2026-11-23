@@ -445,11 +445,18 @@ function renderDetection(detection) {
         : Number.isFinite(best.meanNcc)
             ? best.meanNcc
             : null;
+    const trackList = Array.isArray(detection.detections) && detection.detections.length > 1
+        ? detection.detections
+        : null;
+    const multiRegionRow = trackList
+        ? `<div><dt>Đa vùng logo</dt><dd>Phát hiện ${trackList.length} logo (${trackList.map((t) => `${t.position.width}x${t.position.height}@${t.position.x},${t.position.y}`).join(' + ')})</dd></div>`
+        : '';
     els.detection.innerHTML = `
         <dl>
             <div><dt>Ứng viên</dt><dd>${bestLabel}</dd></div>
             <div><dt>Vị trí</dt><dd>${detection.position.x}, ${detection.position.y}</dd></div>
             <div><dt>Kích thước</dt><dd>${detection.position.width} x ${detection.position.height}</dd></div>
+            ${multiRegionRow}
             <div><dt>Điểm trung bình</dt><dd>${Number.isFinite(bestScore) ? bestScore.toFixed(3) : '-'}</dd></div>
             <div><dt>Phiếu bầu</dt><dd>${best.votes || 0}/${detection.summary?.frameCount || 0}</dd></div>
             <div><dt>Trạng thái</dt><dd>${detection.isConfident ? 'Có thể xuất' : 'Độ tin cậy thấp'}</dd></div>
@@ -821,6 +828,20 @@ async function processSingleItem(item) {
             allenkFdncnnRuntimeProfile
         );
         const allenkFdncnnRuntime = await resolveExportDenoiseRuntime(denoiseBackend, allenkFdncnnRuntimeProfile);
+        const extraTracks = Array.isArray(detectionPayload?.detection?.detections)
+            ? detectionPayload.detection.detections
+            : [];
+        if (denoiseBackend === VIDEO_DENOISE_BACKENDS.ALLENK_FDNCNN_BROWSER_SPIKE && extraTracks.length > 1) {
+            for (const track of extraTracks) {
+                await resolveExportDenoiseRuntime(
+                    denoiseBackend,
+                    resolveAllenkFdncnnRuntimeProfile(track?.position)
+                );
+            }
+        }
+        const resolveTrackRuntime = denoiseBackend === VIDEO_DENOISE_BACKENDS.ALLENK_FDNCNN_BROWSER_SPIKE
+            ? (track) => loadAllenkFdncnnRuntime(resolveAllenkFdncnnRuntimeProfile(track?.position))
+            : null;
         const allenkFdncnnTemporalReuse = getAllenkFdncnnTemporalReuseConfig(allenkFdncnnRuntime);
         const debugAlphaOptions = getDebugAlphaOptions();
 
@@ -842,6 +863,7 @@ async function processSingleItem(item) {
             detection: detectionPayload,
             allowLowConfidence: els.allowLowConfidence.checked,
             allenkFdncnnRuntime,
+            resolveTrackRuntime,
             allenkFdncnnSigma,
             allenkFdncnnPadding,
             allenkFdncnnTemporalReuse,

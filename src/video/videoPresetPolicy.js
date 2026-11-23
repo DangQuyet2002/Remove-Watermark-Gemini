@@ -6,12 +6,12 @@ import {
 const RELOCATED_MARGIN_RATIO = 1.8;
 const DEFAULT_AUTO_SAMPLE_COUNT = 12;
 const DEFAULT_AUTO_ALPHA_GAIN = 1;
-const DEFAULT_AUTO_AI_EDGE_DENOISE_STRENGTH = 1.8;
-const DEFAULT_AUTO_AI_RESIDUAL_CLEANUP_STRENGTH = 0.4;
-const DEFAULT_RELOCATED_FOOTPRINT_EDGE_DENOISE_STRENGTH = 1;
-const DEFAULT_RELOCATED_FOOTPRINT_RESIDUAL_CLEANUP_STRENGTH = 1.2;
-const DEFAULT_VEO_TEXT_AI_EDGE_DENOISE_STRENGTH = 1.45;
-const DEFAULT_VEO_TEXT_AI_RESIDUAL_CLEANUP_STRENGTH = 0.9;
+const DEFAULT_AUTO_AI_EDGE_DENOISE_STRENGTH = 1.85;
+const DEFAULT_AUTO_AI_RESIDUAL_CLEANUP_STRENGTH = 0.55;
+const DEFAULT_RELOCATED_AI_EDGE_DENOISE_STRENGTH = 1.85;
+const DEFAULT_RELOCATED_AI_RESIDUAL_CLEANUP_STRENGTH = 0.65;
+const DEFAULT_VEO_TEXT_AI_EDGE_DENOISE_STRENGTH = 1.6;
+const DEFAULT_VEO_TEXT_AI_RESIDUAL_CLEANUP_STRENGTH = 0.95;
 
 export function isRelocatedVideoWatermarkPosition(position) {
     if (!position || !Number.isFinite(position.width) || position.width <= 0) {
@@ -56,13 +56,13 @@ export function getRelocatedReviewPresetConfig() {
     return {
         id: 'relocated-review',
         label: 'Xử lý tự động bằng AI',
-        description: 'Tự động phát hiện vị trí watermark và dùng mô hình AI để làm sạch, không cần chỉnh tham số thủ công.',
+        description: 'Tự động phát hiện vị trí watermark (kể cả neo lùi vào trong) và dùng mô hình AI FDnCNN để xóa sạch viền.',
         alphaGain: DEFAULT_AUTO_ALPHA_GAIN,
-        adaptiveAlpha: false,
+        adaptiveAlpha: true,
         highQualityCleanup: DEFAULT_HIGH_QUALITY_CLEANUP,
-        denoiseBackend: VIDEO_DENOISE_BACKENDS.CANVAS_FOOTPRINT_POLISH,
-        edgeDenoiseStrength: DEFAULT_RELOCATED_FOOTPRINT_EDGE_DENOISE_STRENGTH,
-        residualCleanupStrength: DEFAULT_RELOCATED_FOOTPRINT_RESIDUAL_CLEANUP_STRENGTH,
+        denoiseBackend: VIDEO_DENOISE_BACKENDS.ALLENK_FDNCNN_BROWSER_SPIKE,
+        edgeDenoiseStrength: DEFAULT_RELOCATED_AI_EDGE_DENOISE_STRENGTH,
+        residualCleanupStrength: DEFAULT_RELOCATED_AI_RESIDUAL_CLEANUP_STRENGTH,
         sampleCount: DEFAULT_AUTO_SAMPLE_COUNT,
         videoBitrateMbps: 12,
         allowLowConfidence: true
@@ -73,9 +73,9 @@ export function getStandardAutoPresetConfig() {
     return {
         id: 'standard-auto',
         label: 'Xử lý tự động bằng AI',
-        description: 'Mặc định dùng mô hình AI cục bộ để xử lý watermark Gemini/Veo ở góc dưới bên phải.',
+        description: 'Mặc định dùng mô hình AI cục bộ kết hợp thích nghi Alpha từng khung hình để xóa triệt để watermark Gemini/Veo.',
         alphaGain: DEFAULT_AUTO_ALPHA_GAIN,
-        adaptiveAlpha: false,
+        adaptiveAlpha: true,
         highQualityCleanup: DEFAULT_HIGH_QUALITY_CLEANUP,
         denoiseBackend: VIDEO_DENOISE_BACKENDS.ALLENK_FDNCNN_BROWSER_SPIKE,
         edgeDenoiseStrength: DEFAULT_AUTO_AI_EDGE_DENOISE_STRENGTH,

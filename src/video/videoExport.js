@@ -842,19 +842,36 @@ async function processWatermarkRoiAsync(ctx, detection, options) {
     };
 }
 
-export async function processVideoWatermarkFrame(ctx, detection, trackStates = new Map(), options = {}) {
-    const selection = selectVideoWatermarkDetectionForFrame(ctx, detection);
-    const selectedDetection = selection?.detection || detection;
-    const trackId = selectedDetection?.candidate?.id || [
-        selectedDetection?.position?.x,
-        selectedDetection?.position?.y,
-        selectedDetection?.position?.width,
-        selectedDetection?.position?.height
+function buildTrackId(targetDetection) {
+    return targetDetection?.candidate?.id || targetDetection?.template?.id || [
+        targetDetection?.position?.x,
+        targetDetection?.position?.y,
+        targetDetection?.position?.width,
+        targetDetection?.position?.height
     ].join(':');
+}
+
+async function runSingleTrackOnFrame(ctx, targetDetection, trackStates, options) {
+    const trackId = buildTrackId(targetDetection);
     const trackState = trackStates.get(trackId) || {};
-    const frameResult = await processWatermarkRoiAsync(ctx, selectedDetection, {
+    const runtimeResolver = typeof options.resolveTrackRuntime === 'function'
+        ? options.resolveTrackRuntime
+        : null;
+    const trackRuntime = runtimeResolver
+        ? await runtimeResolver(targetDetection)
+        : options.allenkFdncnnRuntime;
+    const trackPadding = targetDetection?.watermarkKind === 'veo-text' &&
+        Number.isFinite(targetDetection?.template?.cleanup?.allenkFdncnnPadding)
+        ? targetDetection.template.cleanup.allenkFdncnnPadding
+        : resolveExportAllenkFdncnnPadding({
+            ...options,
+            allenkFdncnnPadding: options.explicitAllenkFdncnnPadding
+        }, targetDetection);
+    const frameResult = await processWatermarkRoiAsync(ctx, targetDetection, {
         ...options,
-        seedAlphaGain: selectedDetection?.alphaSeed?.seedGain ?? options.seedAlphaGain ?? DEFAULT_ALPHA_GAIN,
+        allenkFdncnnRuntime: trackRuntime,
+        allenkFdncnnPadding: trackPadding ?? options.allenkFdncnnPadding,
+        seedAlphaGain: targetDetection?.alphaSeed?.seedGain ?? options.seedAlphaGain ?? DEFAULT_ALPHA_GAIN,
         previousAlphaGain: trackState.previousAlphaGain ?? null,
         previousTemporalRoi: trackState.previousTemporalRoi ?? null,
         previousTemporalDeltaFrame: trackState.previousTemporalDeltaFrame ?? null,
@@ -871,10 +888,35 @@ export async function processVideoWatermarkFrame(ctx, detection, trackStates = n
     trackState.allenkFdncnnFrameCache = trackState.allenkFdncnnFrameCache ?? options.allenkFdncnnFrameCache ?? {};
     trackStates.set(trackId, trackState);
 
+    return frameResult;
+}
+
+export async function processVideoWatermarkFrame(ctx, detection, trackStates = new Map(), options = {}) {
+    const selection = selectVideoWatermarkDetectionForFrame(ctx, detection);
+    const selectedDetection = selection?.detection || detection;
+    const allTracks = Array.isArray(detection?.detections) && detection.detections.length > 1
+        ? detection.detections.filter((item) => item?.position && item?.alphaMap)
+        : [selectedDetection];
+
+    const primaryResult = await runSingleTrackOnFrame(ctx, selectedDetection, trackStates, options);
+    const processedDetections = primaryResult.skipped ? [] : [selectedDetection];
+
+    if (allTracks.length > 1) {
+        const primaryTrackId = buildTrackId(selectedDetection);
+        for (const extraTrack of allTracks) {
+            if (buildTrackId(extraTrack) === primaryTrackId) continue;
+            const extraResult = await runSingleTrackOnFrame(ctx, extraTrack, trackStates, options);
+            if (!extraResult.skipped) {
+                processedDetections.push(extraTrack);
+            }
+        }
+    }
+
     return {
-        ...frameResult,
+        ...primaryResult,
         selectedDetection,
-        selection
+        selection,
+        processedTrackCount: processedDetections.length
     };
 }
 
@@ -999,8 +1041,10 @@ export async function removeGeminiVideoWatermark(file, options = {}) {
                     textureRepair,
                     textureRepairStrength,
                     allenkFdncnnRuntime: options.allenkFdncnnRuntime,
+                    resolveTrackRuntime: options.resolveTrackRuntime,
                     allenkFdncnnSigma: options.allenkFdncnnSigma,
                     allenkFdncnnPadding,
+                    explicitAllenkFdncnnPadding: cleanupOptions.allenkFdncnnPadding,
                     allenkFdncnnTemporalReuse: options.allenkFdncnnTemporalReuse,
                     highConfidenceThreshold: options.highConfidenceThreshold ?? FRAME_HIGH_CONFIDENCE,
                     lowConfidenceThreshold: options.lowConfidenceThreshold ?? FRAME_LOW_CONFIDENCE

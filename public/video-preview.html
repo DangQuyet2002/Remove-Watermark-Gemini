@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,7 +29,10 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       min-height: 100vh;
@@ -46,7 +50,9 @@
       letter-spacing: -0.02em;
       color: #0f172a;
     }
-    header p, .muted {
+
+    header p,
+    .muted {
       margin: 4px 0 0;
       color: var(--text-muted);
       font-size: 0.9rem;
@@ -58,6 +64,7 @@
       margin: 0 auto;
       padding: 32px 0 40px;
     }
+
     header {
       display: flex;
       align-items: flex-start;
@@ -67,6 +74,7 @@
       border-bottom: 1px solid var(--border);
       margin-bottom: 24px;
     }
+
     .layout {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 380px;
@@ -79,11 +87,12 @@
       background: var(--panel);
       border-radius: var(--radius-lg);
       border: 1px solid var(--border);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
+
     .panel-head {
       padding: 16px 20px;
       display: flex;
@@ -96,8 +105,14 @@
     }
 
     /* Buttons */
-    button, input, select { font: inherit; }
-    button, .download-link {
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button,
+    .download-link {
       height: 38px;
       border-radius: var(--radius-sm);
       border: 1px solid var(--border);
@@ -115,18 +130,27 @@
       transition: all 0.15s ease;
       white-space: nowrap;
     }
-    button:hover:not(:disabled), .download-link:hover:not([aria-disabled="true"]) {
+
+    button:hover:not(:disabled),
+    .download-link:hover:not([aria-disabled="true"]) {
       background: #f8fafc;
       border-color: var(--border-hover);
     }
-    button:focus-visible, .download-link:focus-visible, input:focus-visible, select:focus-visible {
+
+    button:focus-visible,
+    .download-link:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
+
     button:active:not(:disabled) {
       transform: scale(0.98);
     }
-    button:disabled, .download-link[aria-disabled="true"] {
+
+    button:disabled,
+    .download-link[aria-disabled="true"] {
       opacity: 0.5;
       cursor: not-allowed;
     }
@@ -136,6 +160,7 @@
       background: var(--primary);
       color: #fff;
     }
+
     .primary:hover:not(:disabled) {
       background: var(--primary-hover);
       border: none;
@@ -147,12 +172,18 @@
       grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
-    .actions .primary, .actions .download-link { grid-column: span 2; }
+
+    .actions .primary,
+    .actions .download-link {
+      grid-column: span 2;
+    }
+
     .actions .download-link {
       background: var(--accent);
       color: white;
       border: none;
     }
+
     .actions .download-link:hover:not([aria-disabled="true"]) {
       background: var(--accent-hover);
     }
@@ -166,11 +197,13 @@
       grid-template-columns: 1fr 1fr;
       gap: 1px;
     }
+
     .compare-pane {
       position: relative;
       overflow: hidden;
       background: #0f172a;
     }
+
     .compare-pane video {
       position: absolute;
       inset: 0;
@@ -179,7 +212,12 @@
       object-fit: contain;
       object-position: center center;
     }
-    .compare-pane[hidden], .badge[hidden], .empty[hidden] { display: none; }
+
+    .compare-pane[hidden],
+    .badge[hidden],
+    .empty[hidden] {
+      display: none;
+    }
 
     .badge {
       position: absolute;
@@ -196,6 +234,7 @@
       pointer-events: none;
       letter-spacing: 0.02em;
     }
+
     .empty {
       position: absolute;
       inset: 0;
@@ -220,6 +259,7 @@
       background: #fcfcfd;
       border-top: 1px solid var(--border);
     }
+
     .compare-controls .play-toggle {
       width: 32px;
       height: 32px;
@@ -229,22 +269,27 @@
       background: #fff;
       color: var(--primary);
     }
+
     .compare-controls .play-toggle:hover:not(:disabled) {
       border-color: var(--primary);
       background: #f8fafc;
     }
+
     .play-toggle::before {
       content: "";
-      width: 0; height: 0;
+      width: 0;
+      height: 0;
       margin-left: 2px;
       border-top: 6px solid transparent;
       border-bottom: 6px solid transparent;
       border-left: 9px solid currentColor;
     }
+
     .play-toggle[data-playing="true"]::before,
     .play-toggle[data-playing="true"]::after {
       content: "";
-      width: 3px; height: 12px;
+      width: 3px;
+      height: 12px;
       margin: 0 1.5px;
       border: 0;
       background: currentColor;
@@ -258,15 +303,17 @@
       border-radius: 2px;
       cursor: pointer;
     }
+
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 14px;
       height: 14px;
       border-radius: 50%;
       background: var(--primary);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       transition: transform 0.1s;
     }
+
     input[type="range"]::-webkit-slider-thumb:hover {
       transform: scale(1.15);
     }
@@ -297,16 +344,20 @@
       cursor: pointer;
       transition: all 0.2s ease;
     }
-    .dropzone:hover, .dropzone[data-dragging="true"] {
+
+    .dropzone:hover,
+    .dropzone[data-dragging="true"] {
       background: #f0fdf4;
       border-color: var(--accent);
     }
+
     .dropzone strong {
       display: block;
       font-size: 1.05rem;
       color: var(--text);
       margin-bottom: 8px;
     }
+
     .dropzone .muted {
       font-size: 0.85rem;
     }
@@ -326,6 +377,7 @@
       color: var(--text-muted);
       font-size: 0.85rem;
     }
+
     .auto-summary strong {
       display: block;
       color: var(--text);
@@ -333,13 +385,34 @@
       margin-bottom: 4px;
     }
 
-    .internal-controls {
-      display: none;
+    .advanced-controls {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: #fcfcfd;
+      padding: 12px 14px;
     }
+
+    .advanced-controls summary {
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      user-select: none;
+    }
+
+    .internal-controls {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
     .field {
       display: grid;
       gap: 8px;
     }
+
     label {
       color: var(--text);
       font-size: 0.85rem;
@@ -348,12 +421,14 @@
       justify-content: space-between;
       align-items: center;
     }
+
     label span {
       color: var(--text-muted);
       font-variant-numeric: tabular-nums;
     }
 
-    input[type="number"], select {
+    input[type="number"],
+    select {
       width: 100%;
       height: 38px;
       border-radius: var(--radius-sm);
@@ -364,7 +439,9 @@
       transition: border-color 0.15s;
       font-size: 0.9rem;
     }
-    input[type="number"]:hover, select:hover {
+
+    input[type="number"]:hover,
+    select:hover {
       border-color: var(--border-hover);
     }
 
@@ -376,6 +453,7 @@
       cursor: pointer;
       font-weight: normal;
     }
+
     .check input {
       width: 16px;
       height: 16px;
@@ -399,6 +477,7 @@
       border-radius: 3px;
       overflow: hidden;
     }
+
     .progress span {
       display: block;
       width: 0;
@@ -416,9 +495,24 @@
       font-size: 0.85rem;
       border: 1px solid transparent;
     }
-    .status[data-tone="error"] { color: var(--danger); background: #fef2f2; border-color: #fca5a5; }
-    .status[data-tone="warn"] { color: var(--warn); background: #fffbeb; border-color: #fcd34d; }
-    .status[data-tone="success"] { color: var(--success); background: #f0fdf4; border-color: #86efac; }
+
+    .status[data-tone="error"] {
+      color: var(--danger);
+      background: #fef2f2;
+      border-color: #fca5a5;
+    }
+
+    .status[data-tone="warn"] {
+      color: var(--warn);
+      background: #fffbeb;
+      border-color: #fcd34d;
+    }
+
+    .status[data-tone="success"] {
+      color: var(--success);
+      background: #f0fdf4;
+      border-color: #86efac;
+    }
 
     /* Metadata tables (dl) */
     dl {
@@ -426,6 +520,7 @@
       display: grid;
       padding: 4px 0;
     }
+
     dl div {
       min-height: 36px;
       display: grid;
@@ -436,8 +531,15 @@
       font-size: 0.85rem;
       border-bottom: 1px solid var(--border);
     }
-    dl div:last-child { border-bottom: none; }
-    dt { color: var(--text-muted); }
+
+    dl div:last-child {
+      border-bottom: none;
+    }
+
+    dt {
+      color: var(--text-muted);
+    }
+
     dd {
       margin: 0;
       color: var(--text);
@@ -457,11 +559,13 @@
     .queue-panel {
       margin-top: 24px;
     }
+
     .queue-head-title {
       display: flex;
       align-items: center;
       gap: 10px;
     }
+
     .queue-badge {
       background: #e2e8f0;
       color: #334155;
@@ -470,31 +574,37 @@
       padding: 2px 8px;
       border-radius: 9999px;
     }
+
     .queue-head-actions {
       display: flex;
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
     }
+
     .queue-btn {
       height: 32px;
       padding: 0 12px;
       font-size: 0.82rem;
       gap: 6px;
     }
+
     .queue-btn.danger {
       background: #fee2e2;
       color: #b91c1c;
       border-color: #fca5a5;
     }
+
     .queue-btn.danger:hover:not(:disabled) {
       background: #fecaca;
     }
+
     .batch-progress-wrapper {
       padding: 12px 20px;
       background: #f8fafc;
       border-bottom: 1px solid var(--border);
     }
+
     .batch-progress-info {
       display: flex;
       justify-content: space-between;
@@ -504,12 +614,14 @@
       margin-bottom: 6px;
       color: var(--text-muted);
     }
+
     .queue-list {
       display: flex;
       flex-direction: column;
       max-height: 480px;
       overflow-y: auto;
     }
+
     .empty-queue {
       text-align: center;
       padding: 36px 20px;
@@ -520,11 +632,13 @@
       gap: 8px;
       font-size: 0.88rem;
     }
+
     .empty-queue p {
       margin: 0;
       color: var(--text);
       font-size: 0.95rem;
     }
+
     .queue-item {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
@@ -536,16 +650,20 @@
       cursor: pointer;
       position: relative;
     }
+
     .queue-item:last-child {
       border-bottom: none;
     }
+
     .queue-item:hover {
       background: #f8fafc;
     }
+
     .queue-item.active {
       background: #f0fdf4;
       border-left: 4px solid var(--accent);
     }
+
     .queue-item-thumb {
       width: 44px;
       height: 34px;
@@ -557,12 +675,14 @@
       font-size: 0.75rem;
       flex-shrink: 0;
     }
+
     .queue-item-info {
       display: flex;
       flex-direction: column;
       gap: 3px;
       min-width: 0;
     }
+
     .queue-item-title {
       font-size: 0.88rem;
       font-weight: 600;
@@ -571,6 +691,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
     .queue-item-meta {
       font-size: 0.78rem;
       color: var(--text-muted);
@@ -579,6 +700,7 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+
     .queue-item-status-badge {
       font-size: 0.72rem;
       font-weight: 600;
@@ -588,11 +710,32 @@
       align-items: center;
       gap: 4px;
     }
-    .status-idle { background: #f1f5f9; color: #475569; }
-    .status-detecting { background: #fef3c7; color: #92400e; }
-    .status-processing { background: #e0e7ff; color: #3730a3; }
-    .status-done { background: #dcfce7; color: #166534; }
-    .status-error { background: #fee2e2; color: #991b1b; }
+
+    .status-idle {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .status-detecting {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-processing {
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+
+    .status-done {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
     .queue-item-progress-track {
       width: 100%;
       height: 4px;
@@ -601,17 +744,20 @@
       overflow: hidden;
       margin-top: 4px;
     }
+
     .queue-item-progress-fill {
       height: 100%;
       background: var(--accent);
       transition: width 0.15s ease-out;
     }
+
     .queue-item-actions {
       display: flex;
       align-items: center;
       gap: 6px;
       flex-shrink: 0;
     }
+
     .queue-item-btn {
       height: 28px;
       padding: 0 10px;
@@ -621,30 +767,69 @@
 
     /* Responsive */
     @media (max-width: 1024px) {
-      .layout { grid-template-columns: 1fr; }
-      .shell { padding: 24px 0; }
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .shell {
+        padding: 24px 0;
+      }
     }
+
     @media (max-width: 640px) {
-      .shell { width: calc(100% - 32px); }
-      header { flex-direction: column; gap: 12px; }
-      .actions { grid-template-columns: 1fr; }
-      .actions .primary, .actions .download-link { grid-column: auto; }
-      dl div { grid-template-columns: 100px minmax(0, 1fr); }
-      .queue-head-actions { width: 100%; justify-content: flex-start; }
-      .queue-item { grid-template-columns: 1fr; gap: 8px; }
-      .queue-item-thumb { display: none; }
-      .queue-item-actions { justify-content: flex-start; }
+      .shell {
+        width: calc(100% - 32px);
+      }
+
+      header {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .actions {
+        grid-template-columns: 1fr;
+      }
+
+      .actions .primary,
+      .actions .download-link {
+        grid-column: auto;
+      }
+
+      dl div {
+        grid-template-columns: 100px minmax(0, 1fr);
+      }
+
+      .queue-head-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .queue-item {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .queue-item-thumb {
+        display: none;
+      }
+
+      .queue-item-actions {
+        justify-content: flex-start;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="shell">
     <header>
       <div>
         <h1>Xử lý watermark video Gemini cục bộ (MVP)</h1>
-        <p>WebCodecs + Mediabunny: tệp chỉ được giải mã, xử lý từng khung hình và đóng gói lại MP4 ngay trong trình duyệt. Hỗ trợ xử lý một video hoặc nhiều video hàng loạt.</p>
+        <p>WebCodecs + Mediabunny: tệp chỉ được giải mã, xử lý từng khung hình và đóng gói lại MP4 ngay trong trình
+          duyệt. Hỗ trợ xử lý một video hoặc nhiều video hàng loạt.</p>
       </div>
-      <p>Phạm vi hiện tại: watermark kiểu Gemini/Veo 72px ở góc dưới bên phải; track video được mã hóa lại, track âm thanh tương thích được giữ nguyên.</p>
+      <p>Phạm vi hiện tại: watermark kiểu Gemini/Veo 72px ở góc dưới bên phải; track video được mã hóa lại, track âm
+        thanh tương thích được giữ nguyên.</p>
     </header>
 
     <main class="layout">
@@ -664,7 +849,8 @@
             </div>
           </div>
           <div class="compare-controls">
-            <button id="playPauseBtn" class="play-toggle" type="button" data-playing="false" aria-label="Phát" disabled></button>
+            <button id="playPauseBtn" class="play-toggle" type="button" data-playing="false" aria-label="Phát"
+              disabled></button>
             <input id="scrubber" type="range" min="0" max="1000" value="0" aria-label="Tiến độ phát" disabled>
             <span id="timeLabel" class="time-label">0:00</span>
           </div>
@@ -679,19 +865,30 @@
             </div>
             <div class="queue-head-actions">
               <button id="processAllBtn" class="primary queue-btn" type="button" disabled>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
                 <span>Xử lý tất cả</span>
               </button>
               <button id="cancelBatchBtn" class="danger queue-btn" type="button" style="display: none;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="6" width="12" height="12" />
+                </svg>
                 <span>Dừng</span>
               </button>
               <button id="downloadAllBtn" class="queue-btn" type="button" disabled>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
                 <span>Tải tất cả</span>
               </button>
               <button id="clearQueueBtn" class="queue-btn" type="button" disabled>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
                 <span>Xóa hết</span>
               </button>
             </div>
@@ -705,7 +902,16 @@
           </div>
           <div id="videoQueueList" class="queue-list">
             <div class="empty-queue" id="emptyQueueMsg">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+                <line x1="7" y1="2" x2="7" y2="22" />
+                <line x1="17" y1="2" x2="17" y2="22" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <line x1="2" y1="7" x2="7" y2="7" />
+                <line x1="2" y1="17" x2="7" y2="17" />
+                <line x1="17" y1="17" x2="22" y2="17" />
+                <line x1="17" y1="7" x2="22" y2="7" />
+              </svg>
               <p><strong>Chưa có video nào trong hàng đợi</strong></p>
               <span>Chọn hoặc kéo thả nhiều video (MP4, WebM, MOV) để bắt đầu xử lý hàng loạt.</span>
             </div>
@@ -716,8 +922,10 @@
       <aside class="side" aria-label="Cài đặt xử lý">
         <div id="dropzone" class="dropzone" data-dragging="false" role="button" tabindex="0">
           <strong>Chọn hoặc kéo thả video</strong>
-          <span class="muted">Hỗ trợ chọn nhiều video cùng lúc (MP4, WebM, MOV). Video sẽ được thêm vào hàng đợi bên trái.</span>
-          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,video/*" multiple hidden>
+          <span class="muted">Hỗ trợ chọn nhiều video cùng lúc (MP4, WebM, MOV). Video sẽ được thêm vào hàng đợi bên
+            trái.</span>
+          <input id="fileInput" type="file"
+            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,video/*" multiple hidden>
         </div>
 
         <div class="panel">
@@ -735,34 +943,59 @@
               <button id="processBtn" class="primary" type="button">Tự động xuất video không watermark</button>
               <a id="downloadBtn" class="download-link" aria-disabled="true">Tải kết quả</a>
             </div>
-            <div class="internal-controls" hidden>
-              <span id="alphaGainValue">1.00</span>
-              <input id="alphaGain" type="range" min="0.25" max="1.35" step="0.05">
-              <input id="adaptiveAlpha" type="checkbox">
-              <input id="highQualityCleanup" type="checkbox">
-              <select id="denoiseBackend">
-                <option value="none">Tắt</option>
-                <option value="canvas-edge-denoise">Canvas khử nhiễu viền</option>
-                <option value="canvas-edge-band-denoise">Canvas khử nhiễu dải viền</option>
-                <option value="canvas-edge-core-denoise">Canvas khử nhiễu lõi viền</option>
-                <option value="canvas-footprint-polish">Canvas đánh bóng vết</option>
-                <option value="canvas-temporal-delta-stabilize">Canvas ổn định Delta theo thời gian</option>
-                <option value="canvas-temporal-match-delta-stabilize">Canvas ổn định Delta khớp</option>
-                <option value="canvas-temporal-stabilize">Canvas ổn định theo thời gian</option>
-                <option value="canvas-texture-repair">Canvas bù kết cấu</option>
-                <option value="allenk-fdncnn-browser-spike">AI FDnCNN ONNX</option>
-              </select>
-              <button id="relocatedReviewPresetBtn" type="button">Cấu hình rà soát neo di chuyển</button>
-              <span id="edgeDenoiseStrengthValue">0.25</span>
-              <input id="edgeDenoiseStrength" type="range" min="0" max="1" step="0.05">
-              <span id="residualCleanupValue">1.50</span>
-              <input id="residualCleanup" type="range" min="0" max="1.80" step="0.05">
-              <input id="sampleCount" type="number" min="4" max="24" step="1">
-              <input id="videoBitrateMbps" type="number" min="1" max="80" step="0.5">
-              <input id="allowLowConfidence" type="checkbox">
-            </div>
+            <details class="advanced-controls">
+              <summary>Tùy chỉnh chuyên sâu (Độ mạnh AI, Alpha, Bitrate...)</summary>
+              <div class="internal-controls">
+                <div class="field">
+                  <label for="denoiseBackend">Bộ khử viền hậu xử lý</label>
+                  <select id="denoiseBackend">
+                    <option value="none">Tắt</option>
+                    <option value="canvas-edge-denoise">Canvas khử nhiễu viền</option>
+                    <option value="canvas-edge-band-denoise">Canvas khử nhiễu dải viền</option>
+                    <option value="canvas-edge-core-denoise">Canvas khử nhiễu lõi viền</option>
+                    <option value="canvas-footprint-polish">Canvas đánh bóng vết</option>
+                    <option value="canvas-temporal-delta-stabilize">Canvas ổn định Delta theo thời gian</option>
+                    <option value="canvas-temporal-match-delta-stabilize">Canvas ổn định Delta khớp</option>
+                    <option value="canvas-temporal-stabilize">Canvas ổn định theo thời gian</option>
+                    <option value="canvas-texture-repair">Canvas bù kết cấu</option>
+                    <option value="allenk-fdncnn-browser-spike">AI FDnCNN ONNX (Khuyên dùng)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="edgeDenoiseStrength">Độ mạnh khử viền AI <span
+                      id="edgeDenoiseStrengthValue">1.85</span></label>
+                  <input id="edgeDenoiseStrength" type="range" min="0" max="2.5" step="0.05">
+                </div>
+                <div class="field">
+                  <label for="residualCleanup">Làm mịn vết sót <span id="residualCleanupValue">0.55</span></label>
+                  <input id="residualCleanup" type="range" min="0" max="1.80" step="0.05">
+                </div>
+                <div class="field">
+                  <label for="alphaGain">Hệ số Alpha gốc <span id="alphaGainValue">1.00</span></label>
+                  <input id="alphaGain" type="range" min="0.25" max="1.35" step="0.05">
+                </div>
+                <label class="check"><input id="adaptiveAlpha" type="checkbox" checked> Tự thích nghi Alpha từng khung
+                  hình</label>
+                <label class="check"><input id="highQualityCleanup" type="checkbox"> Khử nhiễu Bilateral chất lượng
+                  cao</label>
+                <label class="check"><input id="allowLowConfidence" type="checkbox"> Ép xuất kể cả khi watermark mờ / độ
+                  tin cậy thấp</label>
+                <div class="field">
+                  <label for="sampleCount">Số khung lấy mẫu phát hiện</label>
+                  <input id="sampleCount" type="number" min="4" max="24" step="1">
+                </div>
+                <div class="field">
+                  <label for="videoBitrateMbps">Bitrate xuất (Mbps, để trống = tự động 12Mbps)</label>
+                  <input id="videoBitrateMbps" type="number" min="1" max="80" step="0.5">
+                </div>
+                <div class="preset-row">
+                  <button id="relocatedReviewPresetBtn" type="button">Cấu hình rà soát neo di chuyển</button>
+                </div>
+              </div>
+            </details>
           </div>
-          <div class="note">Khi xuất, track video sẽ được mã hóa lại; track âm thanh được giữ nguyên nếu MP4 hỗ trợ codec âm thanh gốc.</div>
+          <div class="note">Khi xuất, track video sẽ được mã hóa lại; track âm thanh được giữ nguyên nếu MP4 hỗ trợ
+            codec âm thanh gốc.</div>
         </div>
 
         <div class="panel">
@@ -780,4 +1013,5 @@
 
   <script src="video-app.js"></script>
 </body>
+
 </html>
