@@ -170,10 +170,10 @@ const FIXED_CORE_LOCAL_MIN_ORIGINAL_GRADIENT_SCORE = 0.3;
 const FIXED_CORE_LOCAL_VISIBLE_CATALOG_MIN_ORIGINAL_SPATIAL_SCORE = 0.45;
 const FIXED_CORE_LOCAL_VISIBLE_CATALOG_MIN_ORIGINAL_GRADIENT_SCORE = 0.55;
 const PREVIEW_ANCHOR_MIN_SIZE = 24;
-const PREVIEW_ANCHOR_MAX_SIZE_RATIO = 1.05;
+const PREVIEW_ANCHOR_MAX_SIZE_RATIO = 1.15;
 const PREVIEW_ANCHOR_MIN_SIZE_RATIO = 0.55;
 const PREVIEW_ANCHOR_MARGIN_WINDOW = 16;
-const PREVIEW_ANCHOR_MARGIN_EXTENSION = 8;
+const PREVIEW_ANCHOR_MARGIN_EXTENSION = 12;
 const PREVIEW_ANCHOR_SIZE_STEP = 2;
 const PREVIEW_ANCHOR_MARGIN_STEP = 2;
 const PREVIEW_ANCHOR_TOP_K = 8;
@@ -1483,15 +1483,87 @@ function shouldPreserveExactNewMarginVariant(exactCandidate, competingCandidate)
     return !hasMuchStrongerOriginalSignal(competingCandidate, exactCandidate);
 }
 
+function shouldPreferFullFootprintOverUndersizedInnerBox(fullCandidate, innerCandidate) {
+    if (!fullCandidate?.accepted || !innerCandidate?.accepted) return false;
+    const fullPos = fullCandidate.position;
+    const innerPos = innerCandidate.position;
+    if (!fullPos || !innerPos) return false;
+
+    const fullW = Number(fullPos.width);
+    const innerW = Number(innerPos.width);
+    if (
+        !Number.isFinite(fullW) ||
+        !Number.isFinite(innerW) ||
+        fullW - innerW < 1 ||
+        innerW / fullW < 0.82
+    ) {
+        return false;
+    }
+
+    const centerDx = (fullPos.x + fullW / 2) - (innerPos.x + innerW / 2);
+    const centerDy = (fullPos.y + fullPos.height / 2) - (innerPos.y + innerPos.height / 2);
+    if (Math.hypot(centerDx, centerDy) > Math.max(4, fullW * 0.08)) {
+        return false;
+    }
+
+    const fullOrigSp = Number(fullCandidate.originalSpatialScore);
+    const fullOrigGr = Number(fullCandidate.originalGradientScore);
+    const innerOrigGr = Number(innerCandidate.originalGradientScore);
+    const fullProcSp = Number(fullCandidate.processedSpatialScore);
+    const fullProcGr = Number(fullCandidate.processedGradientScore);
+    const innerProcGr = Number(innerCandidate.processedGradientScore);
+    if (
+        ![fullOrigSp, fullOrigGr, innerOrigGr, fullProcSp, fullProcGr, innerProcGr]
+            .every(Number.isFinite)
+    ) {
+        return false;
+    }
+
+    return fullOrigSp >= 0.9 &&
+        fullOrigGr >= 0.52 &&
+        fullOrigGr >= innerOrigGr + 0.08 &&
+        Math.abs(fullProcSp) <= 0.18 &&
+        fullProcGr <= innerProcGr + 0.02;
+}
+
+function shouldPreferClearedFullStrengthOverUnderRemovedVariant(currentBest, candidate) {
+    if (!currentBest?.accepted || !candidate?.accepted) return false;
+    if (!isNewMarginAlphaVariantTrial(currentBest)) return false;
+    if (Number(currentBest.processedSpatialScore) < 0.45) return false;
+
+    const curPos = currentBest.position;
+    const candPos = candidate.position;
+    if (!curPos || !candPos) return false;
+    const dx = (curPos.x + curPos.width / 2) - (candPos.x + candPos.width / 2);
+    const dy = (curPos.y + curPos.height / 2) - (candPos.y + candPos.height / 2);
+    if (Math.hypot(dx, dy) > 8) return false;
+
+    return Number(candidate.originalSpatialScore) >= 0.85 &&
+        Number(candidate.originalGradientScore) >= 0.5 &&
+        Math.abs(Number(candidate.processedSpatialScore)) <= 0.15;
+}
+
 export function pickBetterCandidate(currentBest, candidate, minCostDelta = 0.005) {
     if (!candidate?.accepted) return currentBest;
     if (!currentBest) return candidate;
     const evaluationDecision = arbitrateCandidateByEvaluation(currentBest, candidate);
     if (evaluationDecision) return evaluationDecision;
+    if (shouldPreferClearedFullStrengthOverUnderRemovedVariant(currentBest, candidate)) {
+        return candidate;
+    }
+    if (shouldPreferClearedFullStrengthOverUnderRemovedVariant(candidate, currentBest)) {
+        return currentBest;
+    }
     if (shouldPreserveExactNewMarginVariant(currentBest, candidate)) {
         return currentBest;
     }
     if (shouldPreserveExactNewMarginVariant(candidate, currentBest)) {
+        return candidate;
+    }
+    if (shouldPreferFullFootprintOverUndersizedInnerBox(currentBest, candidate)) {
+        return currentBest;
+    }
+    if (shouldPreferFullFootprintOverUndersizedInnerBox(candidate, currentBest)) {
         return candidate;
     }
     if (shouldPreserveCatalogOriginalSignal(currentBest, candidate)) {
@@ -1965,7 +2037,7 @@ function shouldSkipStandardLocalSearch(seedCandidate) {
 }
 
 function isPreviewAnchorSearchEligible(originalImageData, config) {
-    if (!config || config.logoSize !== 48) return false;
+    if (!config || config.logoSize < PREVIEW_ANCHOR_MIN_SIZE || config.logoSize > 56) return false;
 
     const width = Number(originalImageData?.width);
     const height = Number(originalImageData?.height);
@@ -2579,6 +2651,7 @@ function insertTopPreviewCandidate(topCandidates, candidate) {
 function searchBottomRightPreviewCandidate({
     originalImageData,
     config,
+    candidateSeeds = [],
     alpha48,
     alpha96,
     getAlphaMap,
@@ -2587,64 +2660,92 @@ function searchBottomRightPreviewCandidate({
 }) {
     if (!isPreviewAnchorSearchEligible(originalImageData, config)) return null;
 
-    const minSize = Math.max(
-        PREVIEW_ANCHOR_MIN_SIZE,
-        Math.round(config.logoSize * PREVIEW_ANCHOR_MIN_SIZE_RATIO)
-    );
-    const maxSize = Math.max(
-        minSize,
-        Math.round(config.logoSize * PREVIEW_ANCHOR_MAX_SIZE_RATIO)
-    );
-    const minMarginRight = Math.max(8, config.marginRight - PREVIEW_ANCHOR_MARGIN_WINDOW);
-    const maxMarginRight = config.marginRight + PREVIEW_ANCHOR_MARGIN_EXTENSION;
-    const minMarginBottom = Math.max(8, config.marginBottom - PREVIEW_ANCHOR_MARGIN_WINDOW);
-    const maxMarginBottom = config.marginBottom + PREVIEW_ANCHOR_MARGIN_EXTENSION;
+    const anchorConfigs = [config];
+    for (const seed of candidateSeeds) {
+        const seedCfg = seed?.config;
+        if (
+            !seedCfg ||
+            seed?.provenance?.darkPolarity === true ||
+            seedCfg.logoSize < PREVIEW_ANCHOR_MIN_SIZE ||
+            seedCfg.logoSize > 56
+        ) {
+            continue;
+        }
+        if (!anchorConfigs.some((existing) => (
+            existing.logoSize === seedCfg.logoSize &&
+            existing.marginRight === seedCfg.marginRight &&
+            existing.marginBottom === seedCfg.marginBottom
+        ))) {
+            anchorConfigs.push(seedCfg);
+        }
+    }
+
     const topCandidates = [];
+    const seenCoarseKeys = new Set();
 
-    for (let size = minSize; size <= maxSize; size += PREVIEW_ANCHOR_SIZE_STEP) {
-        const alphaMap = typeof resolveAlphaMap === 'function'
-            ? resolveAlphaMap(size)
-            : resolveAlphaMapForSize(size, {
-                alpha48,
-                alpha96,
-                getAlphaMap
-            });
-        if (!alphaMap) continue;
+    for (const anchorConfig of anchorConfigs) {
+        const minSize = Math.max(
+            PREVIEW_ANCHOR_MIN_SIZE,
+            Math.round(anchorConfig.logoSize * PREVIEW_ANCHOR_MIN_SIZE_RATIO)
+        );
+        const maxSize = Math.max(
+            minSize,
+            Math.round(anchorConfig.logoSize * PREVIEW_ANCHOR_MAX_SIZE_RATIO)
+        );
+        const minMarginRight = Math.max(8, anchorConfig.marginRight - PREVIEW_ANCHOR_MARGIN_WINDOW);
+        const maxMarginRight = anchorConfig.marginRight + PREVIEW_ANCHOR_MARGIN_EXTENSION;
+        const minMarginBottom = Math.max(8, anchorConfig.marginBottom - PREVIEW_ANCHOR_MARGIN_WINDOW);
+        const maxMarginBottom = anchorConfig.marginBottom + PREVIEW_ANCHOR_MARGIN_EXTENSION;
 
-        for (let marginRight = minMarginRight; marginRight <= maxMarginRight; marginRight += PREVIEW_ANCHOR_MARGIN_STEP) {
-            const x = originalImageData.width - marginRight - size;
-            if (x < 0 || x + size > originalImageData.width) continue;
-
-            for (let marginBottom = minMarginBottom; marginBottom <= maxMarginBottom; marginBottom += PREVIEW_ANCHOR_MARGIN_STEP) {
-                const y = originalImageData.height - marginBottom - size;
-                if (y < 0 || y + size > originalImageData.height) continue;
-
-                const coarseSpatialScore = computeRegionSpatialCorrelation({
-                    imageData: originalImageData,
-                    alphaMap,
-                    region: { x, y, size }
+        for (let size = minSize; size <= maxSize; size += PREVIEW_ANCHOR_SIZE_STEP) {
+            const alphaMap = typeof resolveAlphaMap === 'function'
+                ? resolveAlphaMap(size)
+                : resolveAlphaMapForSize(size, {
+                    alpha48,
+                    alpha96,
+                    getAlphaMap
                 });
-                const coarseGradientScore = computeRegionGradientCorrelation({
-                    imageData: originalImageData,
-                    alphaMap,
-                    region: { x, y, size }
-                });
-                const coarseScore =
-                    Math.max(0, coarseGradientScore) * 0.6 +
-                    Math.max(0, coarseSpatialScore) * 0.4;
+            if (!alphaMap) continue;
 
-                if (coarseScore < PREVIEW_ANCHOR_MIN_SCORE) continue;
+            for (let marginRight = minMarginRight; marginRight <= maxMarginRight; marginRight += PREVIEW_ANCHOR_MARGIN_STEP) {
+                const x = originalImageData.width - marginRight - size;
+                if (x < 0 || x + size > originalImageData.width) continue;
 
-                insertTopPreviewCandidate(topCandidates, {
-                    coarseScore,
-                    alphaMap,
-                    position: { x, y, width: size, height: size },
-                    config: {
-                        logoSize: size,
-                        marginRight,
-                        marginBottom
-                    }
-                });
+                for (let marginBottom = minMarginBottom; marginBottom <= maxMarginBottom; marginBottom += PREVIEW_ANCHOR_MARGIN_STEP) {
+                    const y = originalImageData.height - marginBottom - size;
+                    if (y < 0 || y + size > originalImageData.height) continue;
+
+                    const coarseKey = `${size}:${x}:${y}`;
+                    if (seenCoarseKeys.has(coarseKey)) continue;
+                    seenCoarseKeys.add(coarseKey);
+
+                    const coarseSpatialScore = computeRegionSpatialCorrelation({
+                        imageData: originalImageData,
+                        alphaMap,
+                        region: { x, y, size }
+                    });
+                    const coarseGradientScore = computeRegionGradientCorrelation({
+                        imageData: originalImageData,
+                        alphaMap,
+                        region: { x, y, size }
+                    });
+                    const coarseScore =
+                        Math.max(0, coarseGradientScore) * 0.6 +
+                        Math.max(0, coarseSpatialScore) * 0.4;
+
+                    if (coarseScore < PREVIEW_ANCHOR_MIN_SCORE) continue;
+
+                    insertTopPreviewCandidate(topCandidates, {
+                        coarseScore,
+                        alphaMap,
+                        position: { x, y, width: size, height: size },
+                        config: {
+                            logoSize: size,
+                            marginRight,
+                            marginBottom
+                        }
+                    });
+                }
             }
         }
     }
@@ -2984,6 +3085,7 @@ function searchOutlineDarkBodyGainCandidates({
 function evaluateAdaptiveTrial({
     originalImageData,
     config,
+    catalogPriorConfig = null,
     alpha96,
     resolveAlphaMap,
     allowAdaptiveSearch
@@ -2999,7 +3101,8 @@ function evaluateAdaptiveTrial({
     const adaptive = detectAdaptiveWatermarkRegion({
         imageData: originalImageData,
         alpha96,
-        defaultConfig: config
+        defaultConfig: config,
+        catalogPriorConfig
     });
     const adaptiveConfidence = adaptive?.confidence ?? null;
 
@@ -3031,25 +3134,79 @@ function evaluateAdaptiveTrial({
         marginBottom: originalImageData.height - adaptivePosition.y - size
     };
 
+    let adaptiveTrial = evaluateRestorationCandidate({
+        originalImageData,
+        alphaMap: adaptiveAlphaMap,
+        position: adaptivePosition,
+        source: 'adaptive',
+        config: adaptiveConfig,
+        baselineNearBlackRatio: calculateNearBlackRatio(originalImageData, adaptivePosition),
+        adaptiveConfidence: adaptive.confidence,
+        provenance: mergeCandidateProvenance(
+            { adaptive: true },
+            adaptive.strongUndersizedMatch === true
+                ? { strongUndersizedMatch: true }
+                : null
+        ),
+        includeImageData: false
+    });
+
+    if (
+        adaptiveTrial &&
+        !adaptiveTrial.accepted &&
+        adaptive.spatialScore >= 0.85 &&
+        adaptive.gradientScore >= 0.45
+    ) {
+        const centerX = adaptivePosition.x + size / 2;
+        const centerY = adaptivePosition.y + size / 2;
+        for (const sizeDelta of [-1, -2, 1]) {
+            const altSize = size + sizeDelta;
+            if (altSize < 24) continue;
+            const altX = Math.round(centerX - altSize / 2);
+            const altY = Math.round(centerY - altSize / 2);
+            if (
+                altX < 0 ||
+                altY < 0 ||
+                altX + altSize > originalImageData.width ||
+                altY + altSize > originalImageData.height
+            ) {
+                continue;
+            }
+            const altAlphaMap = resolveAlphaMap(altSize);
+            if (!altAlphaMap) continue;
+            const altPosition = { x: altX, y: altY, width: altSize, height: altSize };
+            const altConfig = {
+                logoSize: altSize,
+                marginRight: originalImageData.width - altX - altSize,
+                marginBottom: originalImageData.height - altY - altSize
+            };
+            const altTrial = evaluateRestorationCandidate({
+                originalImageData,
+                alphaMap: altAlphaMap,
+                position: altPosition,
+                source: 'adaptive',
+                config: altConfig,
+                baselineNearBlackRatio: calculateNearBlackRatio(originalImageData, altPosition),
+                adaptiveConfidence: adaptive.confidence,
+                provenance: mergeCandidateProvenance(
+                    { adaptive: true },
+                    adaptive.strongUndersizedMatch === true
+                        ? { strongUndersizedMatch: true }
+                        : null
+                ),
+                includeImageData: false
+            });
+            if (altTrial?.accepted) {
+                adaptiveTrial = altTrial;
+                break;
+            }
+        }
+    }
+
     return {
         adaptive,
         adaptiveConfidence,
-        adaptiveTrial: evaluateRestorationCandidate({
-            originalImageData,
-            alphaMap: adaptiveAlphaMap,
-            position: adaptivePosition,
-            source: 'adaptive',
-            config: adaptiveConfig,
-            baselineNearBlackRatio: calculateNearBlackRatio(originalImageData, adaptivePosition),
-            adaptiveConfidence: adaptive.confidence,
-            provenance: mergeCandidateProvenance(
-                { adaptive: true },
-                adaptive.strongUndersizedMatch === true
-                    ? { strongUndersizedMatch: true }
-                    : null
-            ),
-            includeImageData: false
-        })
+        adaptiveTrial
     };
 }
 
@@ -3287,6 +3444,7 @@ export function selectInitialCandidate({
         const previewAnchorCandidate = searchBottomRightPreviewCandidate({
             originalImageData,
             config,
+            candidateSeeds: standardCandidateSeeds,
             alpha48,
             alpha96,
             getAlphaMap,
@@ -3371,6 +3529,7 @@ export function selectInitialCandidate({
         } = evaluateAdaptiveTrial({
             originalImageData,
             config,
+            catalogPriorConfig,
             alpha96,
             resolveAlphaMap,
             allowAdaptiveSearch

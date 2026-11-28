@@ -21,8 +21,33 @@ const RESIDUAL_IMAGE_AI_EDGE_STRENGTH = 1.85;
 const DEFAULT_IMAGE_RESIDUAL_POLISH = 0.55;
 const RESIDUAL_IMAGE_RESIDUAL_POLISH = 1.05;
 
-const FORCED_RESCUE_MIN_SPATIAL = 0.2;
-const FORCED_RESCUE_MIN_GRADIENT = 0.14;
+const FORCED_RESCUE_MIN_SPATIAL = 0.18;
+const FORCED_RESCUE_MIN_GRADIENT = 0.11;
+const FORCED_RESCUE_MIN_PROMINENCE = 0.075;
+const FORCED_RESCUE_ADAPTIVE_MIN_SPATIAL = 0.22;
+const FORCED_RESCUE_ADAPTIVE_MIN_GRADIENT = 0.12;
+const FORCED_RESCUE_ADAPTIVE_MIN_PROMINENCE = 0.09;
+
+const EXTRA_THOROUGH_CANDIDATE_CONFIGS = Object.freeze([
+    Object.freeze({ logoSize: 48, marginRight: 96, marginBottom: 96 }),
+    Object.freeze({ logoSize: 48, marginRight: 32, marginBottom: 32 }),
+    Object.freeze({ logoSize: 48, marginRight: 72, marginBottom: 72 }),
+    Object.freeze({ logoSize: 48, marginRight: 73, marginBottom: 73 }),
+    Object.freeze({ logoSize: 48, marginRight: 73, marginBottom: 73, alphaVariant: 'v2' }),
+    Object.freeze({ logoSize: 48, marginRight: 96, marginBottom: 96, alphaVariant: 'v2' }),
+    Object.freeze({ logoSize: 52, marginRight: 102, marginBottom: 102, alphaVariant: 'v2' }),
+    Object.freeze({ logoSize: 36, marginRight: 96, marginBottom: 96, alphaVariant: 'v2' }),
+    Object.freeze({ logoSize: 72, marginRight: 96, marginBottom: 96 }),
+    Object.freeze({ logoSize: 72, marginRight: 108, marginBottom: 108 }),
+    Object.freeze({ logoSize: 72, marginRight: 144, marginBottom: 144 }),
+    Object.freeze({ logoSize: 72, marginRight: 144, marginBottom: 144, alphaVariant: 'v2' }),
+    Object.freeze({ logoSize: 96, marginRight: 64, marginBottom: 64 }),
+    Object.freeze({ logoSize: 96, marginRight: 128, marginBottom: 128 }),
+    Object.freeze({ logoSize: 96, marginRight: 192, marginBottom: 192 }),
+    Object.freeze({ logoSize: 96, marginRight: 192, marginBottom: 192, alphaVariant: '20260520' }),
+    Object.freeze({ logoSize: 96, marginRight: 192, marginBottom: 192, alphaVariant: 'v2' }),
+    Object.freeze({ logoSize: 44, marginRight: 29, marginBottom: 40 })
+]);
 
 function isValidRegionPosition(position, width, height) {
     return Boolean(
@@ -45,8 +70,10 @@ async function resolveRegionAlphaMap(engine, region) {
     if (size <= 0) return null;
     const variant = region?.config?.alphaVariant;
 
-    if (variant === 'v2' && size === 36) {
-        return engine.getAlphaMap('36-v2');
+    if (variant === 'v2') {
+        const base36 = await engine.getAlphaMap('36-v2');
+        if (!base36 || base36.length !== 36 * 36) return null;
+        return size === 36 ? base36 : interpolateAlphaMap(base36, 36, size);
     }
     if (variant === '20260520' && size === 96) {
         return engine.getAlphaMap('96-20260520');
@@ -79,59 +106,180 @@ function collectTargetRegions(meta, canvasWidth, canvasHeight) {
     return [];
 }
 
-async function tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight) {
-    const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+function measureLocalSpatialProminence(imageData, alphaMap, position, spatialScore) {
+    const { width, height } = imageData;
+    const size = position.width;
+    let maxControl = -Infinity;
+    for (const [dx, dy] of [[-1, 0], [0, -1], [-1, -1], [-2, 0], [0, -2]]) {
+        const cx = position.x + dx * size;
+        const cy = position.y + dy * size;
+        if (cx < 0 || cy < 0 || cx + size > width || cy + size > height) continue;
+        const controlScore = computeRegionSpatialCorrelation({
+            imageData,
+            alphaMap,
+            region: { x: cx, y: cy, size }
+        });
+        if (Number.isFinite(controlScore) && controlScore > maxControl) {
+            maxControl = controlScore;
+        }
+    }
+    return Number.isFinite(maxControl) ? spatialScore - maxControl : Infinity;
+}
+
+function overlapsExistingRegion(position, existingRegions) {
+    for (const existing of existingRegions) {
+        const ep = existing.position;
+        const ix = Math.max(0, Math.min(position.x + position.width, ep.x + ep.width) - Math.max(position.x, ep.x));
+        const iy = Math.max(0, Math.min(position.y + position.height, ep.y + ep.height) - Math.max(position.y, ep.y));
+        const inter = ix * iy;
+        const minArea = Math.min(position.width * position.height, ep.width * ep.height);
+        if (minArea > 0 && inter / minArea > 0.25) return true;
+    }
+    return false;
+}
+
+function extractPatchScratch(imageData, position) {
+    const out = {
+        width: position.width,
+        height: position.height,
+        data: new Uint8ClampedArray(position.width * position.height * 4)
+    };
+    for (let row = 0; row < position.height; row++) {
+        const srcStart = ((position.y + row) * imageData.width + position.x) * 4;
+        out.data.set(
+            imageData.data.subarray(srcStart, srcStart + position.width * 4),
+            row * position.width * 4
+        );
+    }
+    return out;
+}
+
+function buildThoroughRescueCatalogConfigs(canvasWidth, canvasHeight, defaultConfig) {
+    const rawConfigs = [
+        ...resolveGeminiWatermarkSearchCatalogEntries(canvasWidth, canvasHeight, defaultConfig)
+            .map((entry) => entry?.config)
+            .filter(Boolean),
+        ...EXTRA_THOROUGH_CANDIDATE_CONFIGS
+    ];
+
+    const longSide = Math.max(canvasWidth, canvasHeight);
+    const shortSide = Math.min(canvasWidth, canvasHeight);
+    if (longSide >= 768) {
+        const scaledV2Margin = Math.max(24, Math.round(192 * (longSide / (shortSide >= 566 ? 2752 : 2816))));
+        rawConfigs.push({
+            logoSize: 36,
+            marginRight: scaledV2Margin,
+            marginBottom: scaledV2Margin,
+            alphaVariant: 'v2'
+        });
+    }
+
+    const seen = new Set();
+    const deduped = [];
+    for (const cfg of rawConfigs) {
+        const key = `${cfg.logoSize}:${cfg.marginRight}:${cfg.marginBottom}:${cfg.alphaVariant ?? 'default'}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(cfg);
+    }
+    return deduped;
+}
+
+async function findSingleForcedRescueCandidate(imageData, engine, canvasWidth, canvasHeight, existingRegions = []) {
     const defaultConfig = detectWatermarkConfig(canvasWidth, canvasHeight);
     const alpha96 = await engine.getAlphaMap(96);
-    const entries = resolveGeminiWatermarkSearchCatalogEntries(canvasWidth, canvasHeight, defaultConfig);
+    const configs = buildThoroughRescueCatalogConfigs(canvasWidth, canvasHeight, defaultConfig);
 
     let bestCandidate = null;
-    for (const entry of entries) {
-        const cfg = entry?.config;
-        if (!cfg) continue;
+    for (const cfg of configs) {
         const size = cfg.logoSize;
-        const position = {
+        const basePos = {
             x: canvasWidth - cfg.marginRight - size,
             y: canvasHeight - cfg.marginBottom - size,
             width: size,
             height: size
         };
-        if (!isValidRegionPosition(position, canvasWidth, canvasHeight)) continue;
-        const alphaMap = await resolveRegionAlphaMap(engine, { config: cfg, position }).catch(() => null);
+        if (!isValidRegionPosition(basePos, canvasWidth, canvasHeight)) continue;
+        if (overlapsExistingRegion(basePos, existingRegions)) continue;
+
+        const alphaMap = await resolveRegionAlphaMap(engine, { config: cfg, position: basePos }).catch(() => null);
         if (!alphaMap || alphaMap.length !== size * size) continue;
 
-        const spatialScore = computeRegionSpatialCorrelation({
-            imageData,
-            alphaMap,
-            region: { x: position.x, y: position.y, size }
-        });
-        const gradientScore = computeRegionGradientCorrelation({
-            imageData,
-            alphaMap,
-            region: { x: position.x, y: position.y, size }
-        });
-        if (spatialScore < FORCED_RESCUE_MIN_SPATIAL || gradientScore < FORCED_RESCUE_MIN_GRADIENT) {
-            continue;
+        let localBest = null;
+        for (const [dx, dy] of [[0, 0], [-2, 0], [2, 0], [0, -2], [0, 2]]) {
+            const position = {
+                x: basePos.x + dx,
+                y: basePos.y + dy,
+                width: size,
+                height: size
+            };
+            if (!isValidRegionPosition(position, canvasWidth, canvasHeight)) continue;
+            if (overlapsExistingRegion(position, existingRegions)) continue;
+
+            const spatialScore = computeRegionSpatialCorrelation({
+                imageData,
+                alphaMap,
+                region: { x: position.x, y: position.y, size }
+            });
+            if (!Number.isFinite(spatialScore) || spatialScore < FORCED_RESCUE_MIN_SPATIAL) continue;
+
+            const gradientScore = computeRegionGradientCorrelation({
+                imageData,
+                alphaMap,
+                region: { x: position.x, y: position.y, size }
+            });
+            if (!Number.isFinite(gradientScore) || gradientScore < FORCED_RESCUE_MIN_GRADIENT) continue;
+
+            const prominence = measureLocalSpatialProminence(imageData, alphaMap, position, spatialScore);
+            if (prominence < FORCED_RESCUE_MIN_PROMINENCE) continue;
+
+            const combined = spatialScore * 0.6 + gradientScore * 0.4;
+            if (!localBest || combined > localBest.combined) {
+                localBest = {
+                    position,
+                    config: {
+                        ...cfg,
+                        marginRight: canvasWidth - position.x - size,
+                        marginBottom: canvasHeight - position.y - size
+                    },
+                    alphaMap,
+                    spatialScore,
+                    gradientScore,
+                    combined
+                };
+            }
+            if (dx === 0 && dy === 0 && spatialScore < 0.3) break;
         }
-        const combined = spatialScore * 0.65 + gradientScore * 0.35;
-        if (!bestCandidate || combined > bestCandidate.combined) {
-            bestCandidate = { position, config: cfg, alphaMap, spatialScore, gradientScore, combined };
+
+        if (localBest && (!bestCandidate || localBest.combined > bestCandidate.combined)) {
+            bestCandidate = localBest;
         }
     }
 
     if (!bestCandidate) {
-        const adaptive = detectAdaptiveWatermarkRegion({
-            imageData,
-            alpha96,
-            defaultConfig,
-            threshold: 0.36
-        });
-        if (
-            adaptive?.found &&
-            adaptive.region &&
-            adaptive.spatialScore >= FORCED_RESCUE_MIN_SPATIAL &&
-            adaptive.gradientScore >= FORCED_RESCUE_MIN_GRADIENT
-        ) {
+        const adaptiveSeeds = [defaultConfig];
+        if (defaultConfig.logoSize > 56) {
+            adaptiveSeeds.push(
+                { logoSize: 96, marginRight: 160, marginBottom: 160 },
+                { logoSize: 48, marginRight: 80, marginBottom: 80 }
+            );
+        }
+
+        for (const seedConfig of adaptiveSeeds) {
+            const adaptive = detectAdaptiveWatermarkRegion({
+                imageData,
+                alpha96,
+                defaultConfig: seedConfig,
+                threshold: 0.35
+            });
+            if (
+                !adaptive?.found ||
+                !adaptive.region ||
+                adaptive.spatialScore < FORCED_RESCUE_ADAPTIVE_MIN_SPATIAL ||
+                adaptive.gradientScore < FORCED_RESCUE_ADAPTIVE_MIN_GRADIENT
+            ) {
+                continue;
+            }
             const size = adaptive.region.size;
             const position = {
                 x: adaptive.region.x,
@@ -139,8 +287,15 @@ async function tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight) {
                 width: size,
                 height: size
             };
-            if (isValidRegionPosition(position, canvasWidth, canvasHeight)) {
-                const alphaMap = size === 96 ? alpha96 : interpolateAlphaMap(alpha96, 96, size);
+            if (!isValidRegionPosition(position, canvasWidth, canvasHeight)) continue;
+            if (overlapsExistingRegion(position, existingRegions)) continue;
+
+            const alphaMap = size === 96 ? alpha96 : interpolateAlphaMap(alpha96, 96, size);
+            const prominence = measureLocalSpatialProminence(imageData, alphaMap, position, adaptive.spatialScore);
+            if (prominence < FORCED_RESCUE_ADAPTIVE_MIN_PROMINENCE) continue;
+
+            const combined = adaptive.spatialScore * 0.6 + adaptive.gradientScore * 0.4;
+            if (!bestCandidate || combined > bestCandidate.combined) {
                 bestCandidate = {
                     position,
                     config: {
@@ -151,7 +306,7 @@ async function tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight) {
                     alphaMap,
                     spatialScore: adaptive.spatialScore,
                     gradientScore: adaptive.gradientScore,
-                    combined: adaptive.confidence
+                    combined
                 };
             }
         }
@@ -159,23 +314,27 @@ async function tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight) {
 
     if (!bestCandidate) return null;
 
+    const basePatch = extractPatchScratch(imageData, bestCandidate.position);
+    const localPos = {
+        x: 0,
+        y: 0,
+        width: bestCandidate.position.width,
+        height: bestCandidate.position.height
+    };
+    const localRegion = { x: 0, y: 0, size: bestCandidate.position.width };
     let bestGain = 1;
     let bestAbsResidual = Infinity;
-    for (const gain of [0.6, 0.75, 0.9, 1.0, 1.12, 1.25]) {
+    for (const gain of [0.45, 0.6, 0.75, 0.9, 1.0, 1.12, 1.25]) {
         const probe = {
-            width: canvasWidth,
-            height: canvasHeight,
-            data: new Uint8ClampedArray(imageData.data)
+            width: basePatch.width,
+            height: basePatch.height,
+            data: new Uint8ClampedArray(basePatch.data)
         };
-        removeWatermark(probe, bestCandidate.alphaMap, bestCandidate.position, { alphaGain: gain });
+        removeWatermark(probe, bestCandidate.alphaMap, localPos, { alphaGain: gain });
         const residual = Math.abs(computeRegionSpatialCorrelation({
             imageData: probe,
             alphaMap: bestCandidate.alphaMap,
-            region: {
-                x: bestCandidate.position.x,
-                y: bestCandidate.position.y,
-                size: bestCandidate.position.width
-            }
+            region: localRegion
         }));
         if (residual < bestAbsResidual) {
             bestAbsResidual = residual;
@@ -188,7 +347,6 @@ async function tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight) {
     }
 
     removeWatermark(imageData, bestCandidate.alphaMap, bestCandidate.position, { alphaGain: bestGain });
-    ctx.putImageData(imageData, 0, 0);
 
     return {
         position: bestCandidate.position,
@@ -197,6 +355,27 @@ async function tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight) {
         source: 'thorough-forced-rescue',
         alphaGain: bestGain
     };
+}
+
+async function tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight) {
+    const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+    const rescuedRegions = [];
+
+    for (let pass = 0; pass < 2; pass++) {
+        const rescued = await findSingleForcedRescueCandidate(
+            imageData,
+            engine,
+            canvasWidth,
+            canvasHeight,
+            rescuedRegions
+        );
+        if (!rescued) break;
+        rescuedRegions.push(rescued);
+    }
+
+    if (rescuedRegions.length === 0) return [];
+    ctx.putImageData(imageData, 0, 0);
+    return rescuedRegions;
 }
 
 export async function applyImageThoroughCleanup({
@@ -217,18 +396,32 @@ export async function applyImageThoroughCleanup({
     let regions = collectTargetRegions(nextMeta, canvasWidth, canvasHeight);
 
     if (regions.length === 0 && thoroughMode && nextMeta?.applied === false) {
-        const rescued = await tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight);
-        if (rescued) {
-            regions = [rescued];
+        const rescuedList = await tryForcedThoroughRescue(ctx, engine, canvasWidth, canvasHeight);
+        if (rescuedList.length > 0) {
+            regions = rescuedList;
+            const primary = rescuedList[0];
             nextMeta = {
                 ...nextMeta,
                 applied: true,
                 decisionTier: 'rescued-thorough',
-                position: rescued.position,
-                size: rescued.position.width,
-                config: rescued.config,
-                source: rescued.source,
-                qualityStatus: 'clean'
+                position: primary.position,
+                size: primary.position.width,
+                config: primary.config,
+                source: rescuedList.length > 1
+                    ? `${primary.source}+multi-region`
+                    : primary.source,
+                qualityStatus: 'clean',
+                ...(rescuedList.length > 1
+                    ? {
+                        processedRegionCount: rescuedList.length,
+                        watermarkRegions: rescuedList.map((r) => ({
+                            position: r.position,
+                            config: r.config,
+                            source: r.source,
+                            qualityStatus: 'clean'
+                        }))
+                    }
+                    : {})
             };
         }
     }
@@ -250,7 +443,8 @@ export async function applyImageThoroughCleanup({
             region.qualityStatus === 'visible-residual' ||
             region.qualityStatus === 'mixed' ||
             nextMeta?.qualityStatus === 'visible-residual' ||
-            nextMeta?.qualityStatus === 'mixed';
+            nextMeta?.qualityStatus === 'mixed' ||
+            Number(nextMeta?.detection?.processedGradientScore) >= 0.22;
         const profile = resolveAllenkFdncnnRuntimeProfile(region.position);
         let runtime = options.aiDenoiseRuntime || null;
         if (!runtime && typeof options.resolveAiDenoiseRuntime === 'function') {
@@ -278,6 +472,14 @@ export async function applyImageThoroughCleanup({
                 highQualityCleanup: true
             });
             if (cleanupResult?.denoiseRuntimeStatus === 'applied') {
+                if (thoroughMode && hasVisibleResidual) {
+                    applyVideoResidualCleanup(ctx, region.position, alphaMap, {
+                        denoiseBackend: VIDEO_DENOISE_BACKENDS.CANVAS_FOOTPRINT_POLISH,
+                        edgeDenoiseStrength: 0.55,
+                        residualCleanupStrength: 0,
+                        highQualityCleanup: true
+                    });
+                }
                 aiAppliedCount++;
                 continue;
             }

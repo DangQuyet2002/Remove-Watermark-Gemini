@@ -323,3 +323,35 @@ test('shouldAttemptAdaptiveFallback should return true when original position is
 
     assert.equal(shouldFallback, true);
 });
+
+test('detectAdaptiveWatermarkRegion should preserve 192px-margin seed via catalogPriorConfig when resolvedConfig is scaled', () => {
+    const alpha96 = createSyntheticAlpha(96);
+    const imageData = createBaseImageData(1428, 2560);
+    const target = {
+        size: 95,
+        x: 1428 - 191 - 95,
+        y: 2560 - 191 - 95
+    };
+    applyWatermark(imageData, alpha96, target);
+
+    const result = detectAdaptiveWatermarkRegion({
+        imageData,
+        alpha96,
+        defaultConfig: {
+            logoSize: 89,
+            marginRight: 60,
+            marginBottom: 60
+        },
+        catalogPriorConfig: {
+            logoSize: 96,
+            marginRight: 64,
+            marginBottom: 64
+        },
+        threshold: 0.35
+    });
+
+    assert.equal(result.found, true);
+    assert.ok(Math.abs(result.region.size - target.size) <= 2, `size=${result.region.size}`);
+    assert.ok(Math.abs(result.region.x - target.x) <= 2, `x=${result.region.x}`);
+    assert.ok(Math.abs(result.region.y - target.y) <= 2, `y=${result.region.y}`);
+});

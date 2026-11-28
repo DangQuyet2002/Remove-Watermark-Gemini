@@ -54,7 +54,8 @@ const TEXT = {
 };
 
 let enginePromise = null;
-let workerClient = null;
+let workerPool = [];
+let workerPoolDisabled = false;
 let currentItem = null;
 let imageQueue = [];
 let processedCount = 0;
@@ -144,7 +145,8 @@ async function loadAllenkFdncnnRuntime(runtimeProfile = resolveAllenkFdncnnRunti
                 inputName: 'fdncnn_input',
                 outputName: 'fdncnn_output',
                 inputShape: profile.inputShape,
-                outputShape: profile.outputShape
+                outputShape: profile.outputShape,
+                numThreads: 1
             });
         })();
         allenkFdncnnRuntimePromises.set(profile.id, runtimePromise);
@@ -183,11 +185,66 @@ function getEstimatedWatermarkInfo(item) {
     };
 }
 
+function getDesiredWorkerPoolSize() {
+    const threads = Number(globalThis.navigator?.hardwareConcurrency) || 4;
+    return Math.max(1, Math.min(2, Math.floor(threads / 2)));
+}
+
+function ensureWorkerPool() {
+    if (workerPoolDisabled || !canUseWatermarkWorker()) return workerPool;
+    const targetSize = getDesiredWorkerPoolSize();
+    while (workerPool.length < targetSize) {
+        try {
+            workerPool.push(new WatermarkWorkerClient({
+                workerUrl: './workers/watermark-worker.js'
+            }));
+        } catch (workerError) {
+            console.warn('worker unavailable, fallback to main thread:', workerError);
+            if (workerPool.length === 0) {
+                workerPoolDisabled = true;
+            }
+            break;
+        }
+    }
+    return workerPool;
+}
+
+function acquireLeastBusyWorkerClient() {
+    const pool = ensureWorkerPool();
+    if (pool.length === 0) return null;
+    let best = pool[0];
+    for (let i = 1; i < pool.length; i++) {
+        if ((pool[i].load ?? 0) < (best.load ?? 0)) {
+            best = pool[i];
+        }
+    }
+    return best;
+}
+
+function evictBrokenWorkerClient(client, reason) {
+    const idx = workerPool.indexOf(client);
+    if (idx >= 0) {
+        workerPool.splice(idx, 1);
+    }
+    try {
+        client?.dispose();
+    } catch {
+        // Ignore dispose failure.
+    }
+    console.warn('evicted failed worker instance:', reason);
+}
+
 function disableWorkerClient(reason) {
-    if (!workerClient) return;
-    console.warn('disable worker path, fallback to main thread:', reason);
-    workerClient.dispose();
-    workerClient = null;
+    if (workerPool.length === 0) return;
+    console.warn('disposing worker pool:', reason);
+    for (const client of workerPool) {
+        try {
+            client.dispose();
+        } catch {
+            // Ignore dispose failure.
+        }
+    }
+    workerPool = [];
 }
 
 function cleanupCurrentItem() {
@@ -211,18 +268,8 @@ async function init() {
     try {
         showLoading(TEXT.loading);
 
-        if (canUseWatermarkWorker()) {
-            try {
-                workerClient = new WatermarkWorkerClient({
-                    workerUrl: './workers/watermark-worker.js'
-                });
-            } catch (workerError) {
-                console.warn('worker unavailable, fallback to main thread:', workerError);
-                workerClient = null;
-            }
-        }
-
-        if (!workerClient) {
+        const pool = ensureWorkerPool();
+        if (pool.length === 0) {
             getEngine().catch((error) => {
                 console.warn('main thread engine warmup failed:', error);
             });
@@ -575,16 +622,30 @@ function updateProgress() {
     progressText.textContent = `${TEXT.progress}: ${processedCount}/${imageQueue.length}`;
 }
 
-async function processQueue(batchId) {
-    const concurrency = 3;
-    for (let i = 0; i < imageQueue.length; i += concurrency) {
-        if (batchId !== activeBatchId) return;
+function yieldToBrowser() {
+    return new Promise((resolve) => {
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => setTimeout(resolve, 0));
+        } else {
+            setTimeout(resolve, 0);
+        }
+    });
+}
 
-        await Promise.all(imageQueue.slice(i, i + concurrency).map(async (item) => {
-            if (batchId !== activeBatchId || item.status !== 'pending') return;
+async function processQueue(batchId) {
+    const pool = ensureWorkerPool();
+    const concurrency = pool.length > 0 ? Math.max(1, Math.min(2, pool.length)) : 1;
+    let cursor = 0;
+
+    const runLane = async () => {
+        while (cursor < imageQueue.length) {
+            if (batchId !== activeBatchId) return;
+            const item = imageQueue[cursor++];
+            if (!item || item.status !== 'pending') continue;
 
             item.status = 'loading';
             renderImageCardStatus(item);
+            await yieldToBrowser();
 
             try {
                 const img = await loadImage(item.file);
@@ -598,6 +659,7 @@ async function processQueue(batchId) {
 
                 item.status = 'processing';
                 renderImageCardStatus(item);
+                await yieldToBrowser();
 
                 const processed = await processImageWithBestPath(item.file, img);
                 if (batchId !== activeBatchId) return;
@@ -629,8 +691,10 @@ async function processQueue(batchId) {
                 renderImageCardStatus(item);
                 console.error(error);
             }
-        }));
-    }
+        }
+    };
+
+    await Promise.all(Array.from({ length: concurrency }, () => runLane()));
 }
 
 function createScratchCanvas(width, height) {
@@ -680,26 +744,36 @@ async function processImageWithBestPath(file, fallbackImage, options = {}) {
         multiRegion: true,
         maxRegions: 4,
         ...options,
-        thoroughMode: false
+        thoroughMode,
+        disableWebGpu: window.__gwrDisableWebGpuDenoise === true
     };
 
-    if (workerClient) {
+    const client = acquireLeastBusyWorkerClient();
+    if (client) {
         try {
-            const workerResult = await workerClient.processBlob(file, workerOptions);
-            if (!thoroughMode) {
-                return workerResult;
-            }
-            return await applyMainThreadAiCleanupOnBlob(
-                workerResult.blob,
-                workerResult.meta,
-                fallbackImage
-            );
+            return await client.processBlob(file, workerOptions);
         } catch (error) {
-            console.warn('worker process failed, fallback to main thread:', error);
-            disableWorkerClient(error);
+            const message = error?.message || String(error);
+            const isWorkerCrash = /Worker execution failed|Worker disposed|timed out/i.test(message);
+            if (isWorkerCrash) {
+                evictBrokenWorkerClient(client, error);
+                const retryClient = acquireLeastBusyWorkerClient();
+                if (retryClient) {
+                    try {
+                        return await retryClient.processBlob(file, workerOptions);
+                    } catch (retryError) {
+                        evictBrokenWorkerClient(retryClient, retryError);
+                        workerPoolDisabled = true;
+                    }
+                } else {
+                    workerPoolDisabled = true;
+                }
+            }
+            console.warn('worker process failed, fallback to main thread for current image:', error);
         }
     }
 
+    await yieldToBrowser();
     const engine = await getEngine();
     const canvas = await engine.removeWatermarkFromImage(fallbackImage, {
         ...workerOptions,

@@ -538,6 +538,32 @@ function maybeRemoveStackedSameAnchorLayer(currentResult, options, processOne) {
     };
 }
 
+function isValidSecondaryRestoration(candidateResult, match) {
+    const detection = candidateResult?.meta?.detection;
+    if (!detection) return true;
+
+    const origGrad = Number(detection.originalGradientScore);
+    const procGrad = Number(detection.processedGradientScore);
+    const procSpatial = Number(detection.processedSpatialScore);
+    if (
+        Number.isFinite(origGrad) &&
+        Number.isFinite(procGrad) &&
+        procGrad > Math.max(0.22, origGrad + 0.04)
+    ) {
+        return false;
+    }
+    if (
+        match?.adaptiveFound === true &&
+        Number.isFinite(origGrad) &&
+        origGrad < 0.2 &&
+        Number.isFinite(procSpatial) &&
+        procSpatial < -0.2
+    ) {
+        return false;
+    }
+    return true;
+}
+
 function tryProcessSecondaryCandidate(imageData, match, existingPositions, matches, options, processOne) {
     let candidateResult = null;
     try {
@@ -572,7 +598,8 @@ function tryProcessSecondaryCandidate(imageData, match, existingPositions, match
         candidateResult?.meta?.applied !== true ||
         !isValidPosition(candidatePosition, imageData) ||
         !isDistinctFromAllRegions(candidatePosition, existingPositions) ||
-        !matchesCatalogRegion(candidatePosition, matches)
+        !matchesCatalogRegion(candidatePosition, matches) ||
+        !isValidSecondaryRestoration(candidateResult, match)
     ) {
         return {
             applied: false,

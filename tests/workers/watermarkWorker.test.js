@@ -40,3 +40,44 @@ test('watermark worker should respond to ping messages before image processing',
     globalThis.self = originalSelf;
   }
 });
+
+test('website watermark worker should respond to ping messages before image processing', async () => {
+  const listeners = new Map();
+  const messages = [];
+  const originalSelf = globalThis.self;
+
+  globalThis.self = {
+    location: { href: 'http://localhost:4173/workers/watermark-worker.js' },
+    addEventListener(type, listener) {
+      listeners.set(type, listener);
+    },
+    postMessage(payload) {
+      messages.push(payload);
+    }
+  };
+
+  try {
+    const cacheBustUrl = new URL(`../../src/workers/websiteWatermarkWorker.js?ts=${Date.now()}`, import.meta.url);
+    await import(cacheBustUrl.href);
+
+    const messageHandler = listeners.get('message');
+    assert.equal(typeof messageHandler, 'function');
+
+    await messageHandler({
+      data: {
+        id: 'ping-web-1',
+        type: 'ping'
+      }
+    });
+
+    assert.deepEqual(messages, [{
+      id: 'ping-web-1',
+      ok: true,
+      result: {
+        ready: true
+      }
+    }]);
+  } finally {
+    globalThis.self = originalSelf;
+  }
+});

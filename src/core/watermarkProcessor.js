@@ -3575,18 +3575,24 @@ function refineLocatedAggressiveRemoval({
     onRejected = null
 }) {
     if (!position || !alphaMap || position.width !== position.height) return null;
+    const window = createLocalAlphaSearchWindow(originalImageData, position, 12);
+    const scratchPosition = window.position;
+    const originalScratch = extractLocalAlphaSearchScratch(originalImageData, window);
+    const currentScratch = extractLocalAlphaSearchScratch(currentImageData, window);
+
     const current = {
-        imageData: currentImageData,
+        imageData: currentScratch,
+        baseSource: 'current',
         alphaGain: currentAlphaGain,
         repeatCount: 0,
         spatialScore: currentSpatialScore,
         gradientScore: currentGradientScore,
-        nearBlackRatio: calculateNearBlackRatio(currentImageData, position),
+        nearBlackRatio: calculateNearBlackRatio(currentScratch, scratchPosition),
         ...scoreLocatedAggressiveCandidate({
-            imageData: currentImageData,
-            originalImageData,
+            imageData: currentScratch,
+            originalImageData: originalScratch,
             alphaMap,
-            position,
+            position: scratchPosition,
             alphaGain: currentAlphaGain,
             baselineGradientScore: currentGradientScore
         })
@@ -3599,29 +3605,76 @@ function refineLocatedAggressiveRemoval({
 
     for (const alphaGain of gains) {
         for (const repeatCount of [1, 2]) {
-            best = pickLocatedAggressiveCandidate(
-                best,
-                buildLocatedAggressiveCandidate({
-                    originalImageData,
-                    sourceImageData: originalImageData,
-                    alphaMap,
-                    position,
-                    alphaGain,
-                    repeatCount,
-                    baselineGradientScore: currentGradientScore
-                })
-            );
+            const candidate = buildLocatedAggressiveCandidate({
+                originalImageData: originalScratch,
+                sourceImageData: originalScratch,
+                alphaMap,
+                position: scratchPosition,
+                alphaGain,
+                repeatCount,
+                baselineGradientScore: currentGradientScore
+            });
+            candidate.baseSource = 'original';
+            best = pickLocatedAggressiveCandidate(best, candidate);
+        }
+    }
+
+    const centerAlpha = alphaMap[
+        Math.floor(scratchPosition.height / 2) * scratchPosition.width +
+        Math.floor(scratchPosition.width / 2)
+    ] ?? 0;
+    if (
+        centerAlpha >= 0.42 &&
+        currentGradientScore >= 0.24 &&
+        Math.abs(currentSpatialScore) <= 0.25
+    ) {
+        const origScores = scoreRegion(originalScratch, alphaMap, scratchPosition);
+        if (origScores.spatialScore >= 0.78 && origScores.gradientScore >= 0.42) {
+            const blurRadii = scratchPosition.width >= 72 ? [1, 2, 3] : [1, 2];
+            for (const radius of blurRadii) {
+                const blurredMap = blurAlphaMap(alphaMap, scratchPosition.width, radius);
+                for (const mix of [0.65, 1]) {
+                    const effectiveMap = mix === 1
+                        ? blurredMap
+                        : Float32Array.from(
+                            alphaMap,
+                            (value, index) => value * (1 - mix) + blurredMap[index] * mix
+                        );
+                    for (const alphaGain of [0.95, 1, 1.05]) {
+                        const candidateData = cloneImageData(originalScratch);
+                        removeWatermark(candidateData, effectiveMap, scratchPosition, { alphaGain });
+                        const scored = scoreLocatedAggressiveCandidate({
+                            imageData: candidateData,
+                            originalImageData: originalScratch,
+                            alphaMap,
+                            position: scratchPosition,
+                            alphaGain,
+                            baselineGradientScore: currentGradientScore
+                        });
+                        best = pickLocatedAggressiveCandidate(best, {
+                            imageData: candidateData,
+                            baseSource: 'original',
+                            alphaGain,
+                            repeatCount: 1,
+                            resampledEdgeBlurRadius: radius,
+                            ...scored
+                        });
+                    }
+                }
+            }
         }
     }
 
     const edgeSources = [{
         imageData: best.imageData,
+        baseSource: best.baseSource,
         alphaGain: best.alphaGain,
         repeatCount: best.repeatCount
     }];
-    if (best.imageData !== currentImageData) {
+    if (best.imageData !== currentScratch) {
         edgeSources.push({
-            imageData: currentImageData,
+            imageData: currentScratch,
+            baseSource: 'current',
             alphaGain: currentAlphaGain,
             repeatCount: 0
         });
@@ -3631,19 +3684,20 @@ function refineLocatedAggressiveRemoval({
             const edgeCandidate = blendPreviewResidualEdge({
                 sourceImageData: edgeSource.imageData,
                 alphaMap,
-                position,
+                position: scratchPosition,
                 ...preset
             });
             best = pickLocatedAggressiveCandidate(best, {
                 imageData: edgeCandidate,
+                baseSource: edgeSource.baseSource,
                 alphaGain: edgeSource.alphaGain,
                 repeatCount: edgeSource.repeatCount,
                 edgeCleanup: true,
                 ...scoreLocatedAggressiveCandidate({
                     imageData: edgeCandidate,
-                    originalImageData,
+                    originalImageData: originalScratch,
                     alphaMap,
-                    position,
+                    position: scratchPosition,
                     alphaGain: edgeSource.alphaGain,
                     baselineGradientScore: currentGradientScore
                 })
@@ -3651,7 +3705,7 @@ function refineLocatedAggressiveRemoval({
         }
     }
 
-    if (best.imageData === currentImageData) return null;
+    if (best.imageData === currentScratch) return null;
     const currentSpatialPassable = current.spatialScore <= LOCATED_AGGRESSIVE_PASSABLE_SPATIAL_THRESHOLD;
     const bestSpatialFails = best.spatialScore > LOCATED_AGGRESSIVE_PASSABLE_SPATIAL_THRESHOLD;
     const spatialDrift = best.spatialScore - current.spatialScore;
@@ -3697,7 +3751,24 @@ function refineLocatedAggressiveRemoval({
         }
         return null;
     }
-    return best;
+
+    const baseFullImageData = best.baseSource === 'original'
+        ? originalImageData
+        : currentImageData;
+    const materialized = cloneImageData(baseFullImageData);
+    for (let row = 0; row < position.height; row++) {
+        const srcStart = ((scratchPosition.y + row) * best.imageData.width + scratchPosition.x) * 4;
+        const dstStart = ((position.y + row) * materialized.width + position.x) * 4;
+        materialized.data.set(
+            best.imageData.data.subarray(srcStart, srcStart + position.width * 4),
+            dstStart
+        );
+    }
+    const { baseSource, ...restBest } = best;
+    return {
+        ...restBest,
+        imageData: materialized
+    };
 }
 
 function shouldSkipLocatedAggressiveForCleanCanonical96({

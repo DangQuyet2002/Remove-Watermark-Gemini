@@ -27,12 +27,18 @@ export class WatermarkWorkerClient {
 
         this.worker = new WorkerClass(workerUrl, { type: 'module' });
         this.pending = new Map();
+        this.queue = [];
+        this.activeRequestId = null;
         this.requestId = 0;
 
         this.onMessage = this.onMessage.bind(this);
         this.onError = this.onError.bind(this);
         this.worker.addEventListener('message', this.onMessage);
         this.worker.addEventListener('error', this.onError);
+    }
+
+    get load() {
+        return (this.activeRequestId !== null ? 1 : 0) + this.queue.length;
     }
 
     dispose() {
@@ -50,6 +56,10 @@ export class WatermarkWorkerClient {
 
         this.pending.delete(payload.id);
         clearTimeout(pending.timeoutId);
+        if (this.activeRequestId === payload.id) {
+            this.activeRequestId = null;
+            this.flushQueue();
+        }
         if (payload.ok) {
             pending.resolve(payload.result);
             return;
@@ -65,28 +75,69 @@ export class WatermarkWorkerClient {
 
     rejectAllPending(error) {
         for (const pending of this.pending.values()) {
-            clearTimeout(pending.timeoutId);
+            if (pending.timeoutId) clearTimeout(pending.timeoutId);
             pending.reject(error);
         }
         this.pending.clear();
+        for (const queued of this.queue) {
+            queued.reject(error);
+        }
+        this.queue = [];
+        this.activeRequestId = null;
+    }
+
+    dispatchEntry(entry) {
+        const { id, type, payload, transferList, timeoutMs, resolve, reject } = entry;
+        const timeoutId = setTimeout(() => {
+            this.pending.delete(id);
+            if (this.activeRequestId === id) {
+                this.activeRequestId = null;
+                this.flushQueue();
+            }
+            reject(new Error(`Worker request timed out: ${type}`));
+        }, timeoutMs);
+
+        this.pending.set(id, { resolve, reject, timeoutId });
+        if (type !== 'ping') {
+            this.activeRequestId = id;
+        }
+        try {
+            this.worker.postMessage({ id, type, ...payload }, transferList);
+        } catch (error) {
+            clearTimeout(timeoutId);
+            this.pending.delete(id);
+            if (this.activeRequestId === id) {
+                this.activeRequestId = null;
+                this.flushQueue();
+            }
+            reject(toError(error));
+        }
+    }
+
+    flushQueue() {
+        while (this.activeRequestId === null && this.queue.length > 0) {
+            const next = this.queue.shift();
+            this.dispatchEntry(next);
+        }
     }
 
     request(type, payload, transferList = [], timeoutMs = 120000) {
         const id = ++this.requestId;
         return new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => {
-                this.pending.delete(id);
-                reject(new Error(`Worker request timed out: ${type}`));
-            }, timeoutMs);
-
-            this.pending.set(id, { resolve, reject, timeoutId });
-            try {
-                this.worker.postMessage({ id, type, ...payload }, transferList);
-            } catch (error) {
-                clearTimeout(timeoutId);
-                this.pending.delete(id);
-                reject(toError(error));
+            const entry = {
+                id,
+                type,
+                payload,
+                transferList,
+                timeoutMs,
+                resolve,
+                reject
+            };
+            if (type === 'ping' || this.activeRequestId === null) {
+                this.dispatchEntry(entry);
+                return;
             }
+            this.queue.push(entry);
         });
     }
 

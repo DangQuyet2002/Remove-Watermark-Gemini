@@ -133,25 +133,167 @@ function buildTemplateGradient(alphaMap, size) {
     return sobelMagnitude(alphaMap, size, size);
 }
 
-function scoreCandidate({ gray, grad, width, height }, alphaMap, templateGrad, candidate) {
+function buildZeroMeanTemplate(values) {
+    const n = values.length;
+    if (n === 0) {
+        return { zeroMean: new Float64Array(0), norm: 0 };
+    }
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += values[i];
+    const mean = sum / n;
+
+    const zeroMean = new Float64Array(n);
+    let sq = 0;
+    for (let i = 0; i < n; i++) {
+        const d = values[i] - mean;
+        zeroMean[i] = d;
+        sq += d * d;
+    }
+    return {
+        zeroMean,
+        norm: Math.sqrt(sq)
+    };
+}
+
+function createRoiSearchContext(imageData, roiX, roiY) {
+    const { width, height, data } = imageData;
+    const rx = clamp(Math.floor(roiX), 0, Math.max(0, width - 1));
+    const ry = clamp(Math.floor(roiY), 0, Math.max(0, height - 1));
+    const roiW = width - rx;
+    const roiH = height - ry;
+    const gray = new Float32Array(roiW * roiH);
+
+    for (let ly = 0; ly < roiH; ly++) {
+        const srcRowBase = (ry + ly) * width + rx;
+        const dstRowBase = ly * roiW;
+        for (let lx = 0; lx < roiW; lx++) {
+            const j = (srcRowBase + lx) * 4;
+            gray[dstRowBase + lx] =
+                (0.2126 * data[j] + 0.7152 * data[j + 1] + 0.0722 * data[j + 2]) / 255;
+        }
+    }
+
+    const grad = new Float32Array(roiW * roiH);
+    const minLy = ry === 0 ? 1 : 1;
+    const maxLy = roiH - 1;
+    const minLx = rx === 0 ? 1 : 1;
+    const maxLx = roiW - 1;
+    for (let ly = minLy; ly < maxLy; ly++) {
+        for (let lx = minLx; lx < maxLx; lx++) {
+            const i = ly * roiW + lx;
+            const gx =
+                -gray[i - roiW - 1] - 2 * gray[i - 1] - gray[i + roiW - 1] +
+                gray[i - roiW + 1] + 2 * gray[i + 1] + gray[i + roiW + 1];
+            const gy =
+                -gray[i - roiW - 1] - 2 * gray[i - roiW] - gray[i - roiW + 1] +
+                gray[i + roiW - 1] + 2 * gray[i + roiW] + gray[i + roiW + 1];
+            grad[i] = Math.sqrt(gx * gx + gy * gy);
+        }
+    }
+
+    const stride = roiW + 1;
+    const tableLen = stride * (roiH + 1);
+    const graySum = new Float64Array(tableLen);
+    const graySq = new Float64Array(tableLen);
+    const gradSum = new Float64Array(tableLen);
+    const gradSq = new Float64Array(tableLen);
+
+    for (let ly = 0; ly < roiH; ly++) {
+        let rowGraySum = 0;
+        let rowGraySq = 0;
+        let rowGradSum = 0;
+        let rowGradSq = 0;
+        const srcBase = ly * roiW;
+        const prevRow = ly * stride;
+        const currRow = (ly + 1) * stride;
+        for (let lx = 0; lx < roiW; lx++) {
+            const gVal = gray[srcBase + lx];
+            const dVal = grad[srcBase + lx];
+            rowGraySum += gVal;
+            rowGraySq += gVal * gVal;
+            rowGradSum += dVal;
+            rowGradSq += dVal * dVal;
+            const col = lx + 1;
+            graySum[currRow + col] = graySum[prevRow + col] + rowGraySum;
+            graySq[currRow + col] = graySq[prevRow + col] + rowGraySq;
+            gradSum[currRow + col] = gradSum[prevRow + col] + rowGradSum;
+            gradSq[currRow + col] = gradSq[prevRow + col] + rowGradSq;
+        }
+    }
+
+    return {
+        gray,
+        grad,
+        width,
+        height,
+        roiX: rx,
+        roiY: ry,
+        roiW,
+        roiH,
+        stride,
+        graySum,
+        graySq,
+        gradSum,
+        gradSq
+    };
+}
+
+function integralVarianceTimesN(sumTable, sqTable, stride, lx, ly, size) {
+    const n = size * size;
+    if (n <= 0) return 0;
+    const top = ly * stride;
+    const bottom = (ly + size) * stride;
+    const right = lx + size;
+    const sum = sumTable[bottom + right] - sumTable[top + right] - sumTable[bottom + lx] + sumTable[top + lx];
+    const sq = sqTable[bottom + right] - sqTable[top + right] - sqTable[bottom + lx] + sqTable[top + lx];
+    return Math.max(0, sq - (sum * sum) / n);
+}
+
+function scoreCandidate(context, tpl, candidate) {
+    const { width, height, roiX, roiY, roiW, roiH, gray, grad, stride, graySum, graySq, gradSum, gradSq } = context;
     const { x, y, size } = candidate;
     if (x < 0 || y < 0 || x + size > width || y + size > height) {
         return null;
     }
+    const lx = x - roiX;
+    const ly = y - roiY;
+    if (lx < 0 || ly < 0 || lx + size > roiW || ly + size > roiH) {
+        return null;
+    }
 
-    const grayRegion = getRegion(gray, width, x, y, size);
-    const gradRegion = getRegion(grad, width, x, y, size);
+    const varATimesN = integralVarianceTimesN(graySum, graySq, stride, lx, ly, size);
+    const varGTimesN = integralVarianceTimesN(gradSum, gradSq, stride, lx, ly, size);
+    const denSpatial = Math.sqrt(varATimesN) * tpl.alphaNorm;
+    const denGrad = Math.sqrt(varGTimesN) * tpl.gradNorm;
 
-    const spatial = normalizedCrossCorrelation(grayRegion, alphaMap);
-    const gradient = normalizedCrossCorrelation(gradRegion, templateGrad);
+    let spatial = 0;
+    let gradient = 0;
+    if (denSpatial >= EPSILON || denGrad >= EPSILON) {
+        const { alphaZeroMean, gradZeroMean } = tpl;
+        let numSpatial = 0;
+        let numGrad = 0;
+        let k = 0;
+        for (let row = 0; row < size; row++) {
+            let idx = (ly + row) * roiW + lx;
+            for (let col = 0; col < size; col++, idx++, k++) {
+                numSpatial += gray[idx] * alphaZeroMean[k];
+                numGrad += grad[idx] * gradZeroMean[k];
+            }
+        }
+        if (denSpatial >= EPSILON) spatial = numSpatial / denSpatial;
+        if (denGrad >= EPSILON) gradient = numGrad / denGrad;
+    }
 
     let varianceScore = 0;
     if (y > 8) {
         const refY = Math.max(0, y - size);
         const refH = Math.min(size, y - refY);
-        if (refH > 8) {
-            const wmStd = stdDevRegion(gray, width, x, y, size);
-            const refStd = stdDevRegion(gray, width, x, refY, refH);
+        const refLy = refY - roiY;
+        if (refH > 8 && refLy >= 0 && lx + refH <= roiW && refLy + refH <= roiH) {
+            const n = size * size;
+            const refN = refH * refH;
+            const wmStd = Math.sqrt(varATimesN / n);
+            const refStd = Math.sqrt(integralVarianceTimesN(graySum, graySq, stride, lx, refLy, refH) / refN);
             if (refStd > EPSILON) {
                 varianceScore = clamp(1 - wmStd / refStd, 0, 1);
             }
@@ -242,10 +384,21 @@ export function selectAdaptiveFineCandidate(currentBest, candidate) {
         : currentBest;
 }
 
-function buildSeedConfigs(width, height, defaultConfig) {
+function buildSeedConfigs(width, height, defaultConfig, catalogPriorConfig = null) {
     // Start adaptive search from both the coarse default anchor and any
     // catalog-projected anchors for official or near-official Gemini sizes.
-    return resolveGeminiWatermarkSearchConfigs(width, height, defaultConfig);
+    const primary = resolveGeminiWatermarkSearchConfigs(width, height, defaultConfig);
+    if (!catalogPriorConfig) return primary;
+    const prior = resolveGeminiWatermarkSearchConfigs(width, height, catalogPriorConfig);
+    const seen = new Set(primary.map((c) => `${c.logoSize}:${c.marginRight}:${c.marginBottom}`));
+    const combined = [...primary];
+    for (const cfg of prior) {
+        const key = `${cfg.logoSize}:${cfg.marginRight}:${cfg.marginBottom}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        combined.push(cfg);
+    }
+    return combined;
 }
 
 function getTemplate(cache, alpha96, size) {
@@ -253,7 +406,16 @@ function getTemplate(cache, alpha96, size) {
 
     const alpha = size === 96 ? alpha96 : interpolateAlphaMap(alpha96, 96, size);
     const grad = buildTemplateGradient(alpha, size);
-    const tpl = { alpha, grad };
+    const alphaStats = buildZeroMeanTemplate(alpha);
+    const gradStats = buildZeroMeanTemplate(grad);
+    const tpl = {
+        alpha,
+        grad,
+        alphaZeroMean: alphaStats.zeroMean,
+        alphaNorm: alphaStats.norm,
+        gradZeroMean: gradStats.zeroMean,
+        gradNorm: gradStats.norm
+    };
     cache.set(size, tpl);
     return tpl;
 }
@@ -283,7 +445,7 @@ function findStrongUndersizedCandidate({
             const x = width - mr - size;
             for (let mb = minMarginBottom; mb <= maxMarginBottom; mb += 8) {
                 const y = height - mb - size;
-                const score = scoreCandidate(context, tpl.alpha, tpl.grad, { x, y, size });
+                const score = scoreCandidate(context, tpl, { x, y, size });
                 if (!score || (coarseBest && score.confidence <= coarseBest.confidence)) continue;
                 coarseBest = { x, y, size, ...score };
             }
@@ -299,7 +461,7 @@ function findStrongUndersizedCandidate({
             if (x < 0 || x + size > width) continue;
             for (let y = coarseBest.y - 8; y <= coarseBest.y + 8; y += 2) {
                 if (y < 0 || y + size > height) continue;
-                const score = scoreCandidate(context, tpl.alpha, tpl.grad, { x, y, size });
+                const score = scoreCandidate(context, tpl, { x, y, size });
                 if (score && score.confidence > best.confidence) {
                     best = { x, y, size, ...score };
                 }
@@ -459,15 +621,48 @@ export function detectAdaptiveWatermarkRegion({
     imageData,
     alpha96,
     defaultConfig,
+    catalogPriorConfig = null,
     threshold = DEFAULT_THRESHOLD
 }) {
     const { width, height } = imageData;
-    const gray = toGrayscale(imageData);
-    const grad = sobelMagnitude(gray, width, height);
-    const context = { gray, grad, width, height };
     const templateCache = new Map();
+    const seedConfigs = buildSeedConfigs(width, height, defaultConfig, catalogPriorConfig);
 
-    const seedConfigs = buildSeedConfigs(width, height, defaultConfig);
+    const baseSize = defaultConfig.logoSize;
+    const minSize = clamp(Math.round(baseSize * 0.65), 24, 144);
+    const maxSize = clamp(
+        Math.min(Math.round(baseSize * 2.8), Math.floor(Math.min(width, height) * 0.4)),
+        minSize,
+        192
+    );
+    const marginRange = Math.max(32, Math.round(baseSize * 0.75));
+    const minMarginRight = clamp(defaultConfig.marginRight - marginRange, 8, width - minSize - 1);
+    const maxMarginRight = clamp(defaultConfig.marginRight + marginRange, minMarginRight, width - minSize - 1);
+    const minMarginBottom = clamp(defaultConfig.marginBottom - marginRange, 8, height - minSize - 1);
+    const maxMarginBottom = clamp(defaultConfig.marginBottom + marginRange, minMarginBottom, height - minSize - 1);
+
+    let minCandidateX = width - maxMarginRight - maxSize - 10;
+    let minCandidateY = height - maxMarginBottom - maxSize * 2 - 18;
+    for (const cfg of seedConfigs) {
+        const sx = width - cfg.marginRight - cfg.logoSize;
+        const sy = height - cfg.marginBottom - cfg.logoSize;
+        const maxSeedFineSize = Math.max(cfg.logoSize, Math.min(maxSize, cfg.logoSize + 10));
+        minCandidateX = Math.min(minCandidateX, sx - 14);
+        minCandidateY = Math.min(minCandidateY, sy - 14 - maxSeedFineSize);
+    }
+    if (baseSize >= UNDERSIZED_SEARCH_MIN_BASE_SIZE) {
+        const underMaxMr = clamp(defaultConfig.marginRight + marginRange, 8, width - 1);
+        const underMaxMb = clamp(defaultConfig.marginBottom + marginRange, 8, height - 1);
+        minCandidateX = Math.min(minCandidateX, width - underMaxMr - 42 - 10);
+        minCandidateY = Math.min(minCandidateY, height - underMaxMb - 84 - 10);
+    }
+
+    const context = createRoiSearchContext(
+        imageData,
+        Math.max(0, minCandidateX - 2),
+        Math.max(0, minCandidateY - 2)
+    );
+
     const seedCandidates = seedConfigs
         .map((config) => {
             const size = config.logoSize;
@@ -481,7 +676,7 @@ export function detectAdaptiveWatermarkRegion({
             }
 
             const template = getTemplate(templateCache, alpha96, size);
-            const score = scoreCandidate(context, template.alpha, template.grad, candidate);
+            const score = scoreCandidate(context, template, candidate);
             if (!score) return null;
 
             return {
@@ -495,7 +690,12 @@ export function detectAdaptiveWatermarkRegion({
         (best, candidate) => selectAdaptiveFineCandidate(best, candidate),
         null
     );
-    if (bestSeed && bestSeed.confidence >= threshold + 0.08) {
+    if (
+        bestSeed &&
+        bestSeed.confidence >= threshold + 0.08 &&
+        bestSeed.spatialScore >= 0.85 &&
+        bestSeed.gradientScore >= 0.65
+    ) {
         return {
             found: true,
             confidence: bestSeed.confidence,
@@ -510,21 +710,7 @@ export function detectAdaptiveWatermarkRegion({
         };
     }
 
-    const baseSize = defaultConfig.logoSize;
-
-    const minSize = clamp(Math.round(baseSize * 0.65), 24, 144);
-    const maxSize = clamp(
-        Math.min(Math.round(baseSize * 2.8), Math.floor(Math.min(width, height) * 0.4)),
-        minSize,
-        192
-    );
     const scaleList = createScaleList(minSize, maxSize);
-
-    const marginRange = Math.max(32, Math.round(baseSize * 0.75));
-    const minMarginRight = clamp(defaultConfig.marginRight - marginRange, 8, width - minSize - 1);
-    const maxMarginRight = clamp(defaultConfig.marginRight + marginRange, minMarginRight, width - minSize - 1);
-    const minMarginBottom = clamp(defaultConfig.marginBottom - marginRange, 8, height - minSize - 1);
-    const maxMarginBottom = clamp(defaultConfig.marginBottom + marginRange, minMarginBottom, height - minSize - 1);
 
     const topK = [];
     const pushTopK = (candidate) => {
@@ -551,7 +737,7 @@ export function detectAdaptiveWatermarkRegion({
                 const y = height - mb - size;
                 if (y < 0) continue;
 
-                const score = scoreCandidate(context, tpl.alpha, tpl.grad, { x, y, size });
+                const score = scoreCandidate(context, tpl, { x, y, size });
                 if (!score) continue;
 
                 // Prefer sizes close to known watermark scales to avoid tiny-template bias.
@@ -584,11 +770,11 @@ export function detectAdaptiveWatermarkRegion({
 
         for (let size = scaleLo; size <= scaleHi; size += 2) {
             const tpl = getTemplate(templateCache, alpha96, size);
-            for (let x = coarse.x - 8; x <= coarse.x + 8; x += 2) {
+            for (let x = coarse.x - 12; x <= coarse.x + 12; x += 2) {
                 if (x < 0 || x + size > width) continue;
-                for (let y = coarse.y - 8; y <= coarse.y + 8; y += 2) {
+                for (let y = coarse.y - 12; y <= coarse.y + 12; y += 2) {
                     if (y < 0 || y + size > height) continue;
-                    const score = scoreCandidate(context, tpl.alpha, tpl.grad, { x, y, size });
+                    const score = scoreCandidate(context, tpl, { x, y, size });
                     if (!score) continue;
 
                     best = selectAdaptiveFineCandidate(best, {
@@ -597,6 +783,37 @@ export function detectAdaptiveWatermarkRegion({
                         size,
                         ...score
                     });
+                }
+            }
+        }
+    }
+
+    if (best.confidence >= threshold * 0.8) {
+        const centerBest = best;
+        const fineLo = clamp(centerBest.size - 1, minSize, maxSize);
+        const fineHi = clamp(centerBest.size + 1, minSize, maxSize);
+        let bestFineAlign = centerBest.spatialScore * 0.5 + centerBest.gradientScore * 0.5;
+        for (let size = fineLo; size <= fineHi; size++) {
+            const tpl = getTemplate(templateCache, alpha96, size);
+            for (let x = centerBest.x - 1; x <= centerBest.x + 1; x++) {
+                if (x < 0 || x + size > width) continue;
+                for (let y = centerBest.y - 1; y <= centerBest.y + 1; y++) {
+                    if (y < 0 || y + size > height) continue;
+                    const score = scoreCandidate(context, tpl, { x, y, size });
+                    if (!score) continue;
+                    const align = score.spatialScore * 0.5 + score.gradientScore * 0.5;
+                    if (
+                        score.gradientScore >= centerBest.gradientScore - 0.015 &&
+                        align > bestFineAlign + 0.002
+                    ) {
+                        bestFineAlign = align;
+                        best = {
+                            x,
+                            y,
+                            size,
+                            ...score
+                        };
+                    }
                 }
             }
         }

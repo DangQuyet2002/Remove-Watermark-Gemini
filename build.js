@@ -342,11 +342,11 @@ const videoWebsiteCtx = await esbuild.context({
 // Build website worker
 const workerCtx = await esbuild.context({
   ...commonConfig,
-  entryPoints: ['src/workers/watermarkWorker.js'],
+  entryPoints: ['src/workers/websiteWatermarkWorker.js'],
   outfile: 'dist/workers/watermark-worker.js',
   platform: 'browser',
   format: 'esm',
-  target: ['es2020'],
+  target: ['es2022'],
   sourcemap: !isProd,
 });
 

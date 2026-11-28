@@ -441,42 +441,75 @@ export function buildPreviewNeighborhoodPrior({
     const resolvedRelaxationPasses = Number.isInteger(relaxationPasses)
         ? Math.max(0, relaxationPasses)
         : Math.max(24, Math.round((position.width + position.height) * 2));
+    const priorWidth = prior.width;
+    const priorHeight = prior.height;
+    const rowStride = priorWidth * 4;
+    const data = prior.data;
+    const posX = position.x;
+    const posY = position.y;
+    const posW = position.width;
+    const posH = position.height;
+
     for (let pass = 0; pass < resolvedRelaxationPasses; pass++) {
-        for (let row = 0; row < position.height; row++) {
-            const y = position.y + row;
-            for (let col = 0; col < position.width; col++) {
-                const x = position.x + col;
-                const idx = (y * prior.width + x) * 4;
+        for (let row = 0; row < posH; row++) {
+            const y = posY + row;
+            const hasTop = y > 0;
+            const hasBottom = y + 1 < priorHeight;
+            const rowBase = y * rowStride;
+            for (let col = 0; col < posW; col++) {
+                const x = posX + col;
+                const hasLeft = x > 0;
+                const hasRight = x + 1 < priorWidth;
+                const idx = rowBase + x * 4;
+
+                if (hasLeft && hasRight && hasTop && hasBottom) {
+                    const leftIdx = idx - 4;
+                    const rightIdx = idx + 4;
+                    const topIdx = idx - rowStride;
+                    const bottomIdx = idx + rowStride;
+                    const tlIdx = topIdx - 4;
+                    const trIdx = topIdx + 4;
+                    const blIdx = bottomIdx - 4;
+                    const brIdx = bottomIdx + 4;
+                    for (let channel = 0; channel < 3; channel++) {
+                        const sum =
+                            data[leftIdx + channel] +
+                            data[rightIdx + channel] +
+                            data[topIdx + channel] +
+                            data[bottomIdx + channel] +
+                            (
+                                data[tlIdx + channel] +
+                                data[trIdx + channel] +
+                                data[blIdx + channel] +
+                                data[brIdx + channel]
+                            ) * 0.5;
+                        data[idx + channel] = clampChannel(sum / 6);
+                    }
+                    continue;
+                }
+
+                let weight = 0;
+                if (hasLeft) weight += 1;
+                if (hasRight) weight += 1;
+                if (hasTop) weight += 1;
+                if (hasBottom) weight += 1;
+                if (hasLeft && hasTop) weight += 0.5;
+                if (hasRight && hasTop) weight += 0.5;
+                if (hasLeft && hasBottom) weight += 0.5;
+                if (hasRight && hasBottom) weight += 0.5;
+                const denom = Math.max(1, weight);
+
                 for (let channel = 0; channel < 3; channel++) {
                     let sum = 0;
-                    let weight = 0;
-                    const neighbors = [
-                        [x - 1, y, 1],
-                        [x + 1, y, 1],
-                        [x, y - 1, 1],
-                        [x, y + 1, 1],
-                        [x - 1, y - 1, 0.5],
-                        [x + 1, y - 1, 0.5],
-                        [x - 1, y + 1, 0.5],
-                        [x + 1, y + 1, 0.5]
-                    ];
-
-                    for (const [neighborX, neighborY, neighborWeight] of neighbors) {
-                        if (
-                            neighborX < 0 ||
-                            neighborY < 0 ||
-                            neighborX >= prior.width ||
-                            neighborY >= prior.height
-                        ) {
-                            continue;
-                        }
-
-                        const neighborIdx = (neighborY * prior.width + neighborX) * 4;
-                        sum += prior.data[neighborIdx + channel] * neighborWeight;
-                        weight += neighborWeight;
-                    }
-
-                    prior.data[idx + channel] = clampChannel(sum / Math.max(1, weight));
+                    if (hasLeft) sum += data[idx - 4 + channel];
+                    if (hasRight) sum += data[idx + 4 + channel];
+                    if (hasTop) sum += data[idx - rowStride + channel];
+                    if (hasBottom) sum += data[idx + rowStride + channel];
+                    if (hasLeft && hasTop) sum += data[idx - rowStride - 4 + channel] * 0.5;
+                    if (hasRight && hasTop) sum += data[idx - rowStride + 4 + channel] * 0.5;
+                    if (hasLeft && hasBottom) sum += data[idx + rowStride - 4 + channel] * 0.5;
+                    if (hasRight && hasBottom) sum += data[idx + rowStride + 4 + channel] * 0.5;
+                    data[idx + channel] = clampChannel(sum / denom);
                 }
             }
         }

@@ -94,3 +94,50 @@ test('WatermarkWorkerClient should cleanup pending request when postMessage thro
     );
     assert.equal(client.pending.size, 0);
 });
+
+test('WatermarkWorkerClient should serialize concurrent process-image requests FIFO and track load', async () => {
+    const dispatched = [];
+    const resolvers = [];
+    class DeferredWorker extends FakeWorker {
+        postMessage(payload) {
+            dispatched.push(payload.id);
+            resolvers.push(() => {
+                for (const handler of this.listeners.message) {
+                    handler({
+                        data: {
+                            id: payload.id,
+                            ok: true,
+                            result: {
+                                mimeType: 'image/png',
+                                processedBuffer: new Uint8Array([payload.id]).buffer,
+                                meta: { id: payload.id }
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    const client = new WatermarkWorkerClient({
+        WorkerClass: DeferredWorker,
+        workerUrl: './watermark-worker.js'
+    });
+    const firstPromise = client.processBlob(new Blob([new Uint8Array([1])]));
+    const secondPromise = client.processBlob(new Blob([new Uint8Array([2])]));
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(client.load, 2);
+    assert.deepEqual(dispatched, [1], 'second request should wait until first completes');
+
+    resolvers.shift()();
+    const firstResult = await firstPromise;
+    assert.equal(firstResult.meta.id, 1);
+    assert.deepEqual(dispatched, [1, 2]);
+    assert.equal(client.load, 1);
+
+    resolvers.shift()();
+    const secondResult = await secondPromise;
+    assert.equal(secondResult.meta.id, 2);
+    assert.equal(client.load, 0);
+});
