@@ -137,12 +137,13 @@ function writeExtensionManifest(outputDir = EXTENSION_DIR, options = { profile: 
   writeFileSync(join(outputDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
-function copyTreeOverwrite(src, dest) {
+function copyTreeOverwrite(src, dest, { skipNames = null } = {}) {
   const info = statSync(src);
   if (info.isDirectory()) {
     mkdirSync(dest, { recursive: true });
     for (const entry of readdirSync(src)) {
-      copyTreeOverwrite(join(src, entry), join(dest, entry));
+      if (skipNames && skipNames.has(entry)) continue;
+      copyTreeOverwrite(join(src, entry), join(dest, entry), { skipNames });
     }
     return;
   }
@@ -184,13 +185,18 @@ function cleanDistBuildOutputs() {
   }
 }
 
+const UNUSED_PUBLIC_ASSETS = new Set([
+  'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.jsep.mjs'
+]);
+
 const copyAssetsPlugin = {
   name: 'copy-assets',
   setup(build) {
     build.onEnd(() => {
       console.log('📂 Syncing static assets...');
       try {
-        copyTreeOverwrite('public', 'dist');
+        copyTreeOverwrite('public', 'dist', { skipNames: UNUSED_PUBLIC_ASSETS });
       } catch (err) {
         console.error('❌ Asset copy failed:', err);
       }

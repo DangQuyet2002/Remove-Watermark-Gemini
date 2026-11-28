@@ -63,6 +63,17 @@ test('resolveVideoWatermarkCandidates should expose allenk binary-prior 1080x192
                 sourceFamily: 'binary-prior',
                 evidenceGate: 'required',
                 exactSizeVariant: true
+            },
+            {
+                id: 'veo-1080x1920-portrait-96',
+                x: 912,
+                y: 1752,
+                size: 72,
+                marginRight: 96,
+                marginBottom: 96,
+                sourceFamily: 'sample-confirmed',
+                evidenceGate: 'required',
+                exactSizeVariant: true
             }
         ]
     );

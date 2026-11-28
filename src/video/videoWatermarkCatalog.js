@@ -166,12 +166,21 @@ function getExplicitCandidates(width, height) {
                 marginRight: 144,
                 marginBottom: 144,
                 sourcePriority: 1
+            },
+            {
+                id: 'veo-1080x1920-portrait-96',
+                label: '1080x1920 portrait second logo, 72px, margin 96',
+                size: 72,
+                marginRight: 96,
+                marginBottom: 96,
+                sourcePriority: 2,
+                sourceFamily: 'sample-confirmed'
             }
         ].map((candidate) => withVideoBounds(buildCandidate(candidate, width, height, 1, {
             referenceSize: false,
             scaledFromReference: false,
             sourceCandidateId: null,
-            sourceFamily: 'binary-prior',
+            sourceFamily: candidate.sourceFamily || 'binary-prior',
             evidenceGate: 'required',
             exactSizeVariant: true
         }), width, height)).filter(isCandidateInBounds);

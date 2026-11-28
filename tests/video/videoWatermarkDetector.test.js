@@ -9,6 +9,8 @@ import {
     classifyVideoWatermarkEvidenceSummary,
     classifyVideoWatermarkFramePolarity,
     computeVideoBackgroundNormalizedAlphaContrast,
+    detectDiamondVideoWatermarkFromFrames,
+    detectDiamondVideoWatermarkFromFramesAsync,
     detectVideoWatermarkFromFramesAsync,
     detectVideoWatermarkFromFrames,
     getVideoAlphaMap,
@@ -357,6 +359,60 @@ test('detectVideoWatermarkFromFrames should preserve independent alternating wat
         [relocated.id, standard.id].sort()
     );
     assert.equal(result.isConfident, true);
+});
+
+test('portrait video detector finds both real Gemini logos at 144px and 96px margins', async () => {
+    const width = 1080;
+    const height = 1920;
+    const crop = await decodeFixtureImageData(path.resolve(
+        'tests/fixtures/video-watermark-catalog/20261128-double-portrait-crop.png'
+    ));
+    assert.equal(crop.width, 400);
+    assert.equal(crop.height, 420);
+    const frames = [];
+    for (let frameIndex = 0; frameIndex < 3; frameIndex++) {
+        const imageData = createPatternImageData(width, height);
+        for (let y = 0; y < crop.height; y++) {
+            const sourceOffset = y * crop.width * 4;
+            const targetOffset = ((1500 + y) * width + 680) * 4;
+            imageData.data.set(crop.data.subarray(sourceOffset, sourceOffset + crop.width * 4), targetOffset);
+        }
+        frames.push({ timestamp: frameIndex / 24, imageData });
+    }
+
+    for (const detect of [detectDiamondVideoWatermarkFromFrames, detectDiamondVideoWatermarkFromFramesAsync]) {
+        const result = await detect({ frames, width, height });
+        assert.deepEqual(result.detections.map((detection) => detection.candidate.id), [
+            'veo-1080x1920-portrait-relocated-72',
+            'veo-1080x1920-portrait-96'
+        ]);
+        const oldAnchor = result.summary.candidates.find((candidate) =>
+            candidate.candidateId === 'veo-1080x1920-portrait-72'
+        );
+        const secondLogo = result.summary.candidates.find((candidate) =>
+            candidate.candidateId === 'veo-1080x1920-portrait-96'
+        );
+        assert.ok(oldAnchor.meanConfidence < result.summary.minConfidence);
+        assert.ok(secondLogo.meanConfidence >= result.summary.minConfidence);
+    }
+});
+
+test('portrait second-logo candidate does not promote a mark on a single-logo frame', () => {
+    const width = 1080;
+    const height = 1920;
+    const candidates = resolveVideoWatermarkCandidates(width, height);
+    const primary = candidates.find((candidate) => candidate.id === 'veo-1080x1920-portrait-relocated-72');
+    const alphaMap = getVideoAlphaMap(primary.size, { candidate: primary });
+    const frames = [];
+    for (let index = 0; index < 3; index++) {
+        const imageData = createPatternImageData(width, height);
+        applyWhiteWatermark(imageData, alphaMap, {
+            x: primary.x, y: primary.y, width: primary.size, height: primary.size
+        });
+        frames.push({ timestamp: index / 24, imageData });
+    }
+    const result = detectDiamondVideoWatermarkFromFrames({ frames, width, height, candidates });
+    assert.deepEqual(result.detections.map((detection) => detection.candidate.id), [primary.id]);
 });
 
 test('selectIndependentVideoWatermarkTracks should collapse overlapping catalog variants', () => {

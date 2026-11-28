@@ -1,0 +1,22 @@
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin
+  X-Content-Type-Options: nosniff
+
+/models/*
+  Cache-Control: public, max-age=31536000, immutable
+  Cross-Origin-Resource-Policy: same-origin
+
+/models/allenk-fdncnn/*.onnx
+  Content-Type: application/octet-stream
+
+/onnxruntime/*
+  Cache-Control: public, max-age=31536000, immutable
+  Cross-Origin-Resource-Policy: same-origin
+
+/onnxruntime/*.wasm
+  Content-Type: application/wasm
+
+/onnxruntime/*.mjs
+  Content-Type: application/javascript; charset=utf-8
