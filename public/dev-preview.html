@@ -2,161 +2,212 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gemini Watermark Remover - Xem trước nội bộ</title>
-  <meta name="description" content="Internal image and video preview harness for the open-source Gemini watermark remover.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ClearMark AI — Xóa logo Gemini trên Ảnh bằng AI</title>
+  <meta name="description" content="Xóa sạch logo Gemini trên ảnh chỉ trong 1 giây bằng AI FDnCNN. Hỗ trợ xóa hàng loạt, tự quét 2+ logo và bảo mật 100% trên thiết bị.">
   <meta name="robots" content="noindex, nofollow">
-  <link rel="canonical" href="https://geminiwatermarkremover.io/">
+  <meta name="theme-color" content="#059669">
   <link rel="icon" href="data:image/svg+xml,%3Csvg class='h-10 w-10 text-emerald-500' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l-1.9 5.8-5.8 1.9 5.8 1.9 1.9 5.8 1.9-5.8 5.8-1.9-5.8-1.9z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="dev-preview.css">
   <script>
-    // The legacy i18n bootstrap used to strip `loading` from <body> once translations
-    // were applied. After retiring that module, nothing cleared the class and the
-    // page stayed at opacity:0 (blank). Clear it as soon as the DOM is parsed.
     document.addEventListener('DOMContentLoaded', () => {
       document.body.classList.remove('loading');
     });
   </script>
 </head>
-<body class="bg-white text-gray-800 antialiased selection:bg-primary selection:text-white flex flex-col min-h-screen loading">
-  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <svg class="h-10 w-10 text-emerald-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9 1.9 5.8 1.9-5.8 5.8-1.9-5.8-1.9Z"></path>
-        </svg>
-        <div>
-          <a href="./" class="text-sm md:text-xl font-bold tracking-tight text-primary hover:text-primary-hover transition-colors">Gemini Watermark Remover</a>
-          <p class="text-xs text-gray-500">Trang xem trước nội bộ</p>
-        </div>
-      </div>
-      <nav class="flex gap-3 text-sm font-medium text-gray-600 items-center">
-        <a href="userscript/gemini-watermark-remover.user.js" target="_blank" class="hidden md:inline-block hover:text-primary transition-colors">Userscript</a>
-        <a href="https://geminiwatermarkremover.io/" target="_blank" rel="noopener noreferrer" class="hover:text-primary transition-colors">Trang chủ</a>
+<body class="saas-body text-gray-800 antialiased selection:bg-primary selection:text-white flex flex-col min-h-screen loading">
+  <header class="saas-navbar sticky top-0 z-50">
+    <div class="saas-container saas-navbar-inner">
+      <a href="./index.html" class="saas-brand">
+        <span class="saas-brand-mark" aria-hidden="true">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9 1.9 5.8 1.9-5.8 5.8-1.9-5.8-1.9Z"></path>
+          </svg>
+        </span>
+        <span>ClearMark AI</span>
+      </a>
+
+      <nav class="saas-nav" aria-label="Điều hướng chính">
+        <a href="./index.html" class="saas-nav-link">Trang chủ</a>
+        <a href="./dev-preview.html" class="saas-nav-link active" aria-current="page">Xóa logo Ảnh</a>
+        <a href="./video-preview.html" class="saas-nav-link">Xóa logo Video</a>
+        <a href="userscript/gemini-watermark-remover.user.js" target="_blank" class="saas-nav-link saas-hide-sm">Userscript</a>
       </nav>
     </div>
   </header>
 
-  <main class="flex-grow bg-gray-50/50 pb-12">
-    <section class="pt-12 pb-8 text-center px-4">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 tracking-tight">
-        Xem trước xóa watermark ảnh / video (nội bộ)
-      </h1>
-      <p class="text-gray-500 max-w-2xl mx-auto mb-6 text-sm md:text-base">
-        Chọn ảnh để so sánh kết quả ngay trên trang này, chọn video sẽ chuyển sang quy trình xử lý video cục bộ.
-      </p>
+  <main class="flex-grow">
+    <section class="saas-hero">
+      <div class="saas-container">
+        <div class="saas-hero-copy">
+          <span class="saas-badge">AI FDnCNN · Tự quét 2+ logo · Miễn phí &amp; Bảo mật 100%</span>
+          <h1 class="saas-title">Xóa sạch logo Gemini trên Ảnh <span>sắc nét như ảnh gốc</span></h1>
+          <p class="saas-subtitle">
+            Tải lên một hoặc nhiều ảnh JPG, PNG, WebP (hoặc dán nhanh Ctrl+V). AI tự động xóa sạch dấu vết logo ngay trên thiết bị của bạn.
+          </p>
+        </div>
 
-      <div class="max-w-xl mx-auto flex items-center justify-center gap-2 text-sm text-gray-500 bg-white border border-gray-200 rounded-full px-4 py-1.5 shadow-sm mb-8">
-        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <span>Đây là trang gỡ lỗi nội bộ, không phải sản phẩm công khai.</span>
-        <a href="https://geminiwatermarkremover.io/" target="_blank" rel="noopener noreferrer" class="font-medium text-gray-700 hover:text-black underline underline-offset-2">Đến trang chủ</a>
-      </div>
-
-      <div class="max-w-3xl mx-auto mb-4 flex items-center justify-center">
-        <label for="thoroughModeToggle" class="flex items-center gap-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-full px-4 py-2 shadow-sm cursor-pointer select-none">
-          <input type="checkbox" id="thoroughModeToggle" checked style="accent-color: #10b981; width: 16px; height: 16px; cursor: pointer;" />
-          <span class="font-medium">Xóa triệt để bằng AI FDnCNN &amp; Đa vùng (tự động quét sạch cả khi dính 2+ logo)</span>
-        </label>
-      </div>
-
-      <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div id="uploadArea" class="group relative flex flex-col items-center justify-center w-full h-56 hover:bg-gray-50 transition-colors cursor-pointer">
-          <div class="absolute inset-4 border-2 border-dashed border-gray-200 rounded-lg group-hover:border-gray-300 transition-colors pointer-events-none"></div>
-          <div class="flex flex-col items-center justify-center relative z-10">
-            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3 text-gray-500 group-hover:text-gray-700 group-hover:scale-105 transition-all duration-200">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        <div class="saas-upload-wrap">
+          <div class="app-card upload-shell overflow-hidden">
+            <div id="uploadArea" class="group relative flex flex-col items-center justify-center w-full upload-dropzone hover:bg-gray-50 transition-colors cursor-pointer">
+              <div class="upload-dashed-frame pointer-events-none"></div>
+              <div class="flex flex-col items-center justify-center relative z-10 px-4 text-center">
+                <div class="upload-icon-circle mb-3 text-emerald-500 group-hover:scale-105 transition-all duration-200">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                </div>
+                <p class="mb-1 text-base font-bold text-gray-900">Tải ảnh lên hoặc kéo thả vào đây</p>
+                <p class="text-xs text-gray-500 mb-3">Hỗ trợ nhiều ảnh JPG, PNG, WebP · Dán bằng Ctrl+V · Thả video sẽ tự mở trang Video</p>
+                <span class="upload-cta-pill">Chọn ảnh từ thiết bị</span>
+              </div>
+              <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,video/*" multiple class="hidden" />
             </div>
-            <p class="mb-1 text-base font-medium text-gray-800">Nhấn hoặc kéo thả tệp vào đây</p>
-            <p class="text-xs text-gray-400">Hỗ trợ chọn nhiều JPG, PNG, WebP; video sẽ chuyển sang quy trình video</p>
+
+            <div class="upload-options-bar">
+              <label for="thoroughModeToggle" class="ai-toggle-label">
+                <input type="checkbox" id="thoroughModeToggle" checked class="toggle-checkbox" />
+                <span><strong>Chế độ AI FDnCNN &amp; Đa vùng</strong> <span class="text-gray-500">(xóa triệt để viền mờ và quét sạch cả khi dính 2+ logo)</span></span>
+              </label>
+            </div>
           </div>
-          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,video/*" multiple class="hidden" />
         </div>
       </div>
     </section>
 
-    <section id="singlePreview" class="max-w-6xl mx-auto px-4" style="display: none;">
-      <div class="flex flex-col md:flex-row gap-6">
-        <div class="flex-1">
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-            <div class="bg-gray-50/80 px-4 py-2.5 border-b border-gray-200 flex justify-between items-center">
-              <h3 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                So sánh trước / sau
-              </h3>
-              <div class="flex gap-4">
-                <span id="originalInfo" class="text-xs text-gray-500 font-mono"></span>
-                <span id="processedInfo" class="text-xs text-primary font-mono" style="display: none;"></span>
-              </div>
-            </div>
-
-            <div class="relative w-full flex-1 flex items-center justify-center bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgZmlsbD0iI2Y5ZmRmZCI+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjZjJmMmYyIi8+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiNmMmYyZjIiLz48L3N2Zz4=')] select-none group min-h-[400px]">
-              <div id="comparisonContainer" class="relative mx-auto w-fit max-w-full">
-                <img id="originalImage" class="block w-auto h-auto max-w-full max-h-[65vh] object-contain object-right-bottom" draggable="false" />
-                <div id="processedOverlay" class="absolute top-0 left-0 h-full w-[50%] overflow-hidden border-r-[1.5px] border-white shadow-[1px_0_4px_rgba(0,0,0,0.15)] box-content z-10" style="display: none;">
-                  <img id="processedImage" class="block h-full max-w-none object-contain object-right-bottom" draggable="false" />
+    <section id="singlePreview" class="saas-workspace-section" style="display: none;">
+      <div class="saas-container">
+        <div class="single-grid">
+          <div class="single-stage">
+            <div class="app-card overflow-hidden flex flex-col h-full">
+              <div class="app-panel-head preview-bar">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-semibold text-gray-800 m-0">So sánh Trước / Sau</h3>
+                  <span class="slider-hint-badge">Kéo thanh trượt</span>
                 </div>
-                <div id="sliderHandle" class="absolute top-0 bottom-0 w-10 -ml-5 z-20 cursor-col-resize flex items-center justify-center group-hover:opacity-100 transition-opacity" style="left: 50%; display: none;">
-                  <div class="absolute w-7 h-7 bg-white rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.2)] flex items-center justify-center border border-gray-100">
-                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l-3 3 3 3m8-6l3 3-3 3"></path></svg>
+                <div class="meta-readout">
+                  <span id="originalInfo" class="text-xs text-gray-500 font-mono"></span>
+                  <span id="processedInfo" class="text-xs text-primary font-mono" style="display: none;"></span>
+                </div>
+              </div>
+
+              <div class="comparison-stage relative w-full flex-1 flex items-center justify-center bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgZmlsbD0iI2Y5ZmRmZCI+PHJlY3Qgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjZjJmMmYyIi8+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiNmMmYyZjIiLz48L3N2Zz4=')] select-none group">
+                <div id="comparisonContainer" class="relative mx-auto w-fit max-w-full">
+                  <img id="originalImage" class="block w-auto h-auto max-w-full max-h-[65vh] object-contain object-right-bottom" draggable="false" />
+                  <div id="processedOverlay" class="absolute top-0 left-0 h-full w-[50%] overflow-hidden border-r-[1.5px] border-white shadow-[1px_0_4px_rgba(0,0,0,0.15)] box-content z-10" style="display: none;">
+                    <img id="processedImage" class="block h-full max-w-none object-contain object-right-bottom" draggable="false" />
                   </div>
+                  <div id="sliderHandle" class="absolute top-0 bottom-0 w-10 -ml-5 z-20 cursor-col-resize flex items-center justify-center group-hover:opacity-100 transition-opacity" style="left: 50%; display: none;">
+                    <div class="slider-knob bg-white rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.2)] flex items-center justify-center border border-gray-100">
+                      <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l-3 3 3 3m8-6l3 3-3 3"></path></svg>
+                    </div>
+                  </div>
+                  <div class="stage-tag stage-tag-left pointer-events-none z-30">Đã xóa logo</div>
+                  <div class="stage-tag stage-tag-right pointer-events-none z-30">Ảnh gốc</div>
                 </div>
-                <div class="absolute top-3 left-3 bg-white/90 backdrop-blur text-gray-700 text-xs font-medium px-2 py-0.5 rounded shadow-sm border border-gray-200 pointer-events-none z-30">Đã xử lý</div>
-                <div class="absolute top-3 right-3 bg-white/90 backdrop-blur text-gray-700 text-xs font-medium px-2 py-0.5 rounded shadow-sm border border-gray-200 pointer-events-none z-30">Ảnh gốc</div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="w-full md:w-64 lg:w-72 flex-shrink-0">
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sticky top-20">
-            <h4 class="text-sm font-semibold text-gray-900 mb-4">Thao tác</h4>
-            <div class="space-y-2.5">
-              <button id="copyBtn" class="w-full py-2 px-4 bg-primary hover:bg-primary-hover active:scale-[0.98] text-white rounded-lg text-sm font-medium transition-transform duration-100 flex items-center justify-center gap-2 shadow-sm" style="display: none;">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 10H8m4-3H8m1.5 6H8"></path></svg>
-                <span>Sao chép kết quả</span>
-              </button>
+          <aside class="single-sidebar">
+            <div class="app-card p-5 sticky-inspector">
+              <h4 class="inspector-title">Tải xuống &amp; Thao tác</h4>
+              <div class="action-stack">
+                <button id="downloadBtn" class="app-btn app-btn-primary" style="display: none;">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  <span>Tải ảnh sạch (PNG)</span>
+                </button>
 
-              <button id="downloadBtn" class="w-full py-2 px-4 bg-gray-900 hover:bg-black active:scale-[0.98] text-white rounded-lg text-sm font-medium transition-transform duration-100 flex items-center justify-center gap-2 shadow-sm" style="display: none;">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                <span>Tải kết quả</span>
-              </button>
+                <button id="copyBtn" class="app-btn app-btn-dark" style="display: none;">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-1 10H8m4-3H8m1.5 6H8"></path></svg>
+                  <span>Sao chép kết quả</span>
+                </button>
 
-              <button id="resetBtn" class="w-full py-2 px-4 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 active:scale-[0.98] rounded-lg text-sm font-medium transition-transform duration-100 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                <span>Đổi tệp</span>
-              </button>
+                <button id="resetBtn" class="app-btn app-btn-secondary">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                  <span>Chọn ảnh khác</span>
+                </button>
+              </div>
+              <div id="statusMessage" class="mt-4 text-xs text-gray-500 min-h-[1.25rem]"></div>
             </div>
-            <div id="statusMessage" class="mt-4 text-xs text-gray-500 min-h-[1.25rem]"></div>
-          </div>
+          </aside>
         </div>
       </div>
     </section>
 
-    <section id="multiPreview" class="max-w-6xl mx-auto px-4" style="display: none;">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div class="bg-gray-50/80 px-4 py-2.5 border-b border-gray-200 flex justify-between items-center">
-          <div>
-            <h3 class="text-sm font-semibold text-gray-700">Xem trước hàng loạt</h3>
-            <p id="progressText" class="text-xs text-gray-500">Tiến độ: 0/0</p>
+    <section id="multiPreview" class="saas-workspace-section" style="display: none;">
+      <div class="saas-container">
+        <div class="app-card overflow-hidden">
+          <div class="app-panel-head">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-800 m-0">Danh sách xử lý hàng loạt</h3>
+              <p id="progressText" class="text-xs text-gray-500 m-0">Tiến độ: 0/0</p>
+            </div>
+            <button id="batchResetBtn" class="app-btn app-btn-secondary app-btn-sm">
+              Chọn lô khác
+            </button>
           </div>
-          <button id="batchResetBtn" class="py-2 px-4 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 active:scale-[0.98] rounded-lg text-sm font-medium transition-transform duration-100">
-            Đổi tệp
-          </button>
+          <div id="imageList" class="batch-list"></div>
         </div>
-        <div id="imageList" class="batch-list"></div>
+      </div>
+    </section>
+
+    <section class="saas-benefits">
+      <div class="saas-container">
+        <div class="saas-benefits-grid">
+          <div class="saas-benefit-card">
+            <div class="saas-benefit-num">01</div>
+            <h3>Sạch mịn bằng AI FDnCNN</h3>
+            <p>Giải ngược toán học kết hợp mạng nơ-ron FDnCNN giúp xóa hoàn toàn viền mờ mà không làm nhòe nền gốc.</p>
+          </div>
+          <div class="saas-benefit-card">
+            <div class="saas-benefit-num">02</div>
+            <h3>Tự động xóa 2+ logo</h3>
+            <p>Quét đa vùng thông minh giúp gỡ sạch cả khi ảnh có 2 logo ở vị trí khác nhau hoặc bị đóng dấu chồng lên nhau.</p>
+          </div>
+          <div class="saas-benefit-card">
+            <div class="saas-benefit-num">03</div>
+            <h3>Bảo mật 100% cục bộ</h3>
+            <p>Ảnh được xử lý trực tiếp trên máy tính hoặc điện thoại của bạn, không gửi dữ liệu qua bất kỳ máy chủ nào.</p>
+          </div>
+        </div>
       </div>
     </section>
   </main>
 
-  <footer class="bg-emerald-600 text-white py-8 mt-auto">
-    <div class="max-w-7xl mx-auto px-4 text-center">
-      <p class="text-emerald-100 text-sm mb-4">
-        Trang gỡ lỗi nội bộ chỉ dùng để kiểm tra nhanh cục bộ; hãy lấy trang chủ và luồng userscript chính làm chuẩn.
-      </p>
-      <div class="text-sm font-medium">
-        <a href="https://allenkuo.medium.com/removing-gemini-ai-watermarks-a-deep-dive-into-reverse-alpha-blending-bbbd83af2a3f" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Nguyên lý xóa watermark</a>
+  <footer class="saas-footer">
+    <div class="saas-container saas-footer-inner">
+      <span>© ClearMark AI — Xóa logo Ảnh &amp; Video cục bộ bằng AI.</span>
+      <div class="saas-footer-links">
+        <a href="./index.html">Trang chủ</a>
+        <a href="./video-preview.html">Xóa logo Video</a>
+        <a href="userscript/gemini-watermark-remover.user.js" target="_blank">Userscript</a>
       </div>
     </div>
   </footer>
+
+  <nav class="mobile-bottom-nav" aria-label="Điều hướng di động">
+    <a href="./index.html" class="mobile-nav-item">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Trang chủ</span>
+    </a>
+    <a href="./dev-preview.html" class="mobile-nav-item active" aria-current="page">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+        <polyline points="21 15 16 10 5 21"></polyline>
+      </svg>
+      <span>Xóa Ảnh</span>
+    </a>
+    <a href="./video-preview.html" class="mobile-nav-item">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2.5"></rect>
+        <polygon points="10 8.5 16 12 10 15.5" fill="currentColor" stroke="none"></polygon>
+      </svg>
+      <span>Xóa Video</span>
+    </a>
+  </nav>
 
   <div id="loadingOverlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-[60] hidden flex items-center justify-center">
     <div class="flex flex-col items-center">

@@ -775,9 +775,13 @@ function setupSlider() {
     container.addEventListener('touchstart', (e) => {
         isDown = true;
         move(e);
-    });
+    }, { passive: true });
     window.addEventListener('touchend', () => { isDown = false; });
-    window.addEventListener('touchmove', move);
+    window.addEventListener('touchmove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        move(e);
+    }, { passive: false });
 }
 
 init();

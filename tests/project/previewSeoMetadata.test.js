@@ -6,30 +6,28 @@ async function readText(relativePath) {
     return readFile(new URL(`../../${relativePath}`, import.meta.url), 'utf8');
 }
 
-test('public root page should stay noindex with canonical pointed to the official website', async () => {
+test('public root page should stay noindex and not link to geminiwatermarkremover.io', async () => {
     const html = await readText('public/index.html');
 
     assert.match(html, /<meta\s+name="robots"\s+content="[^"]*noindex[^"]*nofollow[^"]*"/i);
-    assert.match(
-        html,
-        /<link\s+rel="canonical"\s+href="https:\/\/geminiwatermarkremover\.io\/"\s*\/?>/i
-    );
+    assert.doesNotMatch(html, /geminiwatermarkremover\.io/i);
 });
 
-test('public root page should point users to the official website, userscript, and retained internal preview page', async () => {
+test('public root page should point users to the image tool, video tool, and userscript', async () => {
     const html = await readText('public/index.html');
 
-    assert.match(html, /href="https:\/\/geminiwatermarkremover\.io\/"/i);
-    assert.match(html, /href="userscript\/gemini-watermark-remover\.user\.js"/i);
     assert.match(html, /href="\.\/dev-preview\.html"|href="dev-preview\.html"/i);
+    assert.match(html, /href="\.\/video-preview\.html"|href="video-preview\.html"/i);
+    assert.match(html, /href="userscript\/gemini-watermark-remover\.user\.js"/i);
 });
 
-test('internal dev preview page should retain the browser preview app entry', async () => {
+test('internal dev preview page should retain the browser preview app entry without geminiwatermarkremover.io links', async () => {
     const html = await readText('public/dev-preview.html');
 
     assert.match(html, /id="uploadArea"/i);
     assert.match(html, /id="comparisonContainer"/i);
     assert.match(html, /<script\s+src="app\.js"><\/script>/i);
+    assert.doesNotMatch(html, /geminiwatermarkremover\.io/i);
 });
 
 test('internal dev preview page should not depend on external Tailwind CDN', async () => {

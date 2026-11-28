@@ -2,168 +2,871 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gemini Watermark Remover</title>
-  <meta name="description" content="Trang vào của Gemini Watermark Remover. Trang web công khai nằm tại geminiwatermarkremover.io.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ClearMark AI — Xóa logo Gemini trên Ảnh &amp; Video bằng AI</title>
+  <meta name="description" content="Công cụ AI xóa sạch logo Gemini và Veo trên ảnh &amp; video chỉ trong 1 giây. Hỗ trợ xử lý hàng loạt, xóa 2+ logo cùng lúc, miễn phí và bảo mật 100% trên thiết bị.">
   <meta name="robots" content="noindex, nofollow">
-  <link rel="canonical" href="https://geminiwatermarkremover.io/">
+  <meta name="theme-color" content="#059669">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l-1.9 5.8-5.8 1.9 5.8 1.9 1.9 5.8 1.9-5.8 5.8-1.9-5.8-1.9z'/%3E%3C/svg%3E">
   <style>
     :root {
-      color-scheme: light dark;
-      --bg: #f4f7f4;
-      --panel: rgba(255, 255, 255, 0.9);
-      --text: #142118;
-      --muted: #4c6254;
-      --line: rgba(20, 33, 24, 0.12);
-      --accent: #11795a;
-      --accent-strong: #0b5f46;
+      color-scheme: light;
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --text: #0f172a;
+      --muted: #475569;
+      --subtle: #64748b;
+      --line: #e2e8f0;
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --primary-soft: #ecfdf5;
+      --dark: #0f172a;
     }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0f1712;
-        --panel: rgba(21, 31, 25, 0.88);
-        --text: #e7f1ea;
-        --muted: #9bb4a5;
-        --line: rgba(231, 241, 234, 0.12);
-        --accent: #54c293;
-        --accent-strong: #76d8aa;
-      }
-    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
 
     body {
       margin: 0;
-      min-height: 100vh;
-      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-      background:
-        radial-gradient(circle at top, rgba(17, 121, 90, 0.16), transparent 40%),
-        linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0)),
-        var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: var(--text);
-      display: grid;
-      place-items: center;
-      padding: 24px;
+      background: var(--bg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
 
-    main {
-      width: min(760px, 100%);
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      padding: 32px;
+    .container {
+      width: min(1160px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    /* Sticky Commercial Header */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(12px);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12);
+      border-bottom: 1px solid var(--line);
     }
 
-    .eyebrow {
+    .navbar-inner {
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(17, 121, 90, 0.12);
-      color: var(--accent);
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 1.08rem;
+      letter-spacing: -0.02em;
     }
 
-    h1 {
-      margin: 18px 0 12px;
-      font-size: clamp(32px, 5vw, 52px);
-      line-height: 1.04;
-    }
-
-    p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.7;
-      font-size: 16px;
-    }
-
-    .actions {
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
       display: grid;
-      gap: 12px;
-      margin-top: 28px;
+      place-items: center;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
     }
 
-    .primary-actions {
+    .nav-links {
       display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
+      align-items: center;
+      gap: 24px;
     }
 
-    a.button {
+    .nav-links a {
+      text-decoration: none;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--muted);
+      transition: color 150ms ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--primary-hover);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Buttons */
+    .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 48px;
-      padding: 0 18px;
-      border-radius: 14px;
-      text-decoration: none;
+      gap: 8px;
+      min-height: 46px;
+      padding: 0 22px;
+      border-radius: 12px;
+      font-size: 0.95rem;
       font-weight: 700;
-      transition: transform 120ms ease, background 120ms ease, color 120ms ease, border-color 120ms ease;
+      text-decoration: none;
+      transition: transform 120ms ease, background-color 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+      cursor: pointer;
     }
 
-    a.button:hover {
+    .btn:active { transform: scale(0.98); }
+
+    .btn-sm {
+      min-height: 40px;
+      padding: 0 16px;
+      font-size: 0.88rem;
+      border-radius: 10px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.28);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 10px 26px rgba(16, 185, 129, 0.36);
       transform: translateY(-1px);
     }
 
-    a.button.primary {
-      background: var(--accent);
+    .btn-dark {
+      background: var(--dark);
       color: #fff;
     }
 
-    a.button.primary:hover {
-      background: var(--accent-strong);
+    .btn-dark:hover {
+      background: #1e293b;
+      transform: translateY(-1px);
     }
 
-    a.button.secondary {
-      border: 1px solid var(--line);
+    .btn-outline {
+      background: #fff;
       color: var(--text);
-      background: transparent;
+      border: 1.5px solid var(--line);
     }
 
-    .notes {
-      margin-top: 28px;
-      padding-top: 20px;
-      border-top: 1px solid var(--line);
-      display: grid;
-      gap: 10px;
-      font-size: 14px;
+    .btn-outline:hover {
+      border-color: #cbd5e1;
+      background: var(--surface);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 72px 0 56px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.14), transparent 55%),
+        linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+      text-align: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      border: 1px solid #a7f3d0;
+      color: var(--primary-hover);
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      margin: 0 auto 18px;
+      max-width: 820px;
+      font-size: clamp(32px, 5.2vw, 56px);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-sub {
+      margin: 0 auto 32px;
+      max-width: 650px;
+      font-size: clamp(16px, 2vw, 18px);
       color: var(--muted);
     }
 
-    code {
-      font-family: Consolas, "SFMono-Regular", monospace;
-      font-size: 0.95em;
+    .hero-cta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 44px;
+    }
+
+    /* Metrics Strip */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    .metric-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px 14px;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.03);
+    }
+
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--primary-hover);
+      letter-spacing: -0.02em;
+    }
+
+    .metric-label {
+      font-size: 0.82rem;
+      color: var(--subtle);
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    /* Sections */
+    .section {
+      padding: 72px 0;
+    }
+
+    .section-alt {
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head {
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 44px;
+    }
+
+    .section-eyebrow {
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--primary-hover);
+      margin-bottom: 8px;
+    }
+
+    .section-head h2 {
+      margin: 0 0 12px;
+      font-size: clamp(24px, 3.6vw, 36px);
+      line-height: 1.2;
+      letter-spacing: -0.025em;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    /* Product Cards */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .product-card {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 1.5px solid var(--line);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+      transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .product-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--primary);
+      box-shadow: 0 18px 40px rgba(16, 185, 129, 0.12);
+    }
+
+    .product-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: var(--primary-soft);
+      color: var(--primary-hover);
+      display: grid;
+      place-items: center;
+      margin-bottom: 18px;
+    }
+
+    .product-card h3 {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+      letter-spacing: -0.015em;
+    }
+
+    .product-card p {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .check-list {
+      list-style: none;
+      margin: 0 0 26px;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+
+    .check-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .check-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--primary-soft);
+      color: var(--primary-hover);
+      display: inline-grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    /* Feature Grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    .feature-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
+
+    .feature-card p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* Steps */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .step-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 26px 24px;
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--primary-hover);
+      font-weight: 800;
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+    }
+
+    .step-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
+
+    .step-card p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* FAQ */
+    .faq-list {
+      max-width: 780px;
+      margin: 0 auto;
+      display: grid;
+      gap: 12px;
+    }
+
+    .faq-item {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 20px;
+    }
+
+    .faq-item summary {
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.98rem;
+      color: var(--text);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .faq-item summary::-webkit-details-marker { display: none; }
+
+    .faq-item summary::after {
+      content: "+";
+      font-size: 1.2rem;
+      color: var(--primary-hover);
+      font-weight: 700;
+    }
+
+    .faq-item[open] summary::after {
+      content: "−";
+    }
+
+    .faq-item p {
+      margin: 12px 0 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    /* Final CTA Banner */
+    .cta-banner {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #fff;
+      border-radius: 24px;
+      padding: 48px 32px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.16);
+    }
+
+    .cta-banner h2 {
+      margin: 0 0 12px;
+      font-size: clamp(24px, 3.6vw, 34px);
+      letter-spacing: -0.02em;
+    }
+
+    .cta-banner p {
+      margin: 0 auto 28px;
+      max-width: 560px;
+      color: #cbd5e1;
+      font-size: 1rem;
+    }
+
+    .cta-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .btn-white {
+      background: #fff;
+      color: var(--dark);
+    }
+
+    .btn-white:hover {
+      background: #f1f5f9;
+      transform: translateY(-1px);
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid var(--line);
+      background: var(--surface);
+      padding: 36px 0 calc(36px + env(safe-area-inset-bottom));
+      margin-top: 40px;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 0.88rem;
+      color: var(--subtle);
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .footer-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary-hover);
+    }
+
+    .mobile-bottom-nav {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .product-grid,
+      .feature-grid,
+      .steps-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .navbar-inner { height: 58px; }
+      .nav-actions .btn-outline { display: none; }
+      .hero { padding: 40px 0 36px; }
+      .hero-cta {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .hero-cta .btn { width: 100%; }
+      .section { padding: 48px 0; }
+      .product-card { padding: 22px; }
+      .cta-banner { padding: 34px 20px; border-radius: 18px; }
+      .cta-actions { flex-direction: column; }
+      .cta-actions .btn { width: 100%; }
+      .footer {
+        padding-bottom: calc(92px + env(safe-area-inset-bottom));
+      }
+      .mobile-bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 55;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px);
+        border-top: 1px solid var(--line);
+        padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+      }
+      .mobile-nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-height: 48px;
+        border-radius: 10px;
+        color: var(--subtle);
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .mobile-nav-item.active {
+        color: var(--primary-hover);
+        background: var(--primary-soft);
+      }
     }
   </style>
 </head>
 <body>
-  <main>
-    <div class="eyebrow">Trang vào công khai</div>
-    <h1>Gemini Watermark Remover</h1>
-    <p>
-      Trang chủ của dự án đã chuyển sang một trang riêng (mã nguồn đóng). Kho mã này giữ lại việc phân phối userscript, tài nguyên gỡ lỗi cục bộ và trang xem trước nội bộ trên trình duyệt, không còn dùng đường dẫn gốc làm trang xem trước công khai cho nhà phát triển.
-    </p>
+  <header class="navbar">
+    <div class="container navbar-inner">
+      <a href="./index.html" class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 3-1.9 5.8-5.8 1.9 5.8 1.9 1.9 5.8 1.9-5.8 5.8-1.9-5.8-1.9Z"></path>
+          </svg>
+        </span>
+        <span>ClearMark AI</span>
+      </a>
 
-    <div class="actions">
-      <div class="primary-actions">
-        <a class="button primary" href="https://geminiwatermarkremover.io/" target="_blank" rel="noopener noreferrer">Đến trang chủ</a>
-        <a class="button secondary" href="userscript/gemini-watermark-remover.user.js" target="_blank">Cài đặt Userscript</a>
-        <a class="button secondary" href="./dev-preview.html">Trang xem trước nội bộ</a>
+      <nav class="nav-links" aria-label="Điều hướng trang chủ">
+        <a href="#tools">Công cụ</a>
+        <a href="#features">Tính năng</a>
+        <a href="#how-it-works">Cách hoạt động</a>
+        <a href="#faq">Hỏi đáp</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="./video-preview.html" class="btn btn-outline btn-sm">Xóa Video</a>
+        <a href="./dev-preview.html" class="btn btn-primary btn-sm">Bắt đầu ngay</a>
       </div>
     </div>
+  </header>
 
-    <div class="notes">
-      <div>Trang chủ: <code>https://geminiwatermarkremover.io/</code></div>
-      <div>Khi gỡ lỗi cục bộ, `pnpm dev` vẫn cung cấp userscript, trang probe và trang xem trước nội bộ.</div>
-      <div>Trang vào này giữ <code>noindex, nofollow</code> để tránh trùng lặp với trang chủ công khai.</div>
-    </div>
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="hero-badge">AI FDnCNN cục bộ · Miễn phí 100% · Không cần đăng nhập</div>
+        <h1>Xóa sạch logo Gemini trên <span>Ảnh &amp; Video</span> chỉ trong tích tắc</h1>
+        <p class="hero-sub">
+          Tự động nhận diện và xóa triệt để logo Gemini, Veo — kể cả khi ảnh bị dính 2+ logo hoặc nén mờ. Xử lý trực tiếp trên thiết bị của bạn, giữ nguyên chất lượng sắc nét và âm thanh gốc.
+        </p>
+
+        <div class="hero-cta">
+          <a href="./dev-preview.html" class="btn btn-primary">
+            <span>Xóa logo Ảnh miễn phí</span>
+            <span aria-hidden="true">→</span>
+          </a>
+          <a href="./video-preview.html" class="btn btn-dark">
+            <span>Xóa logo Video (MP4/MOV)</span>
+          </a>
+          <a href="userscript/gemini-watermark-remover.user.js" target="_blank" class="btn btn-outline">
+            <span>Cài Userscript tự động</span>
+          </a>
+        </div>
+
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-value">100%</div>
+            <div class="metric-label">Xử lý cục bộ, bảo mật tuyệt đối</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">2+ Logo</div>
+            <div class="metric-label">Tự quét đa vùng &amp; logo chồng</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">4K &amp; HD</div>
+            <div class="metric-label">Giữ nguyên chi tiết &amp; âm thanh</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">Miễn phí</div>
+            <div class="metric-label">Không giới hạn lượt xử lý</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tools" class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-eyebrow">Giải pháp toàn diện</div>
+          <h2>Một công cụ cho cả Ảnh và Video</h2>
+          <p>Chọn chế độ phù hợp với tệp của bạn. Toàn bộ mô hình AI chạy trực tiếp ngay trong trình duyệt mà không cần cài đặt phần mềm nặng.</p>
+        </div>
+
+        <div class="product-grid">
+          <div class="product-card">
+            <div class="product-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+            </div>
+            <h3>Xóa logo Ảnh bằng AI</h3>
+            <p>Khôi phục nền gốc bằng giải ngược Alpha kết hợp mạng nơ-ron FDnCNN giúp xóa sạch hoàn toàn dấu vết ngôi sao Gemini.</p>
+            <ul class="check-list">
+              <li><span class="check-dot">✓</span>Xóa sạch cả trường hợp ảnh dính 2–3 logo hoặc 2 logo đè nhau</li>
+              <li><span class="check-dot">✓</span>Xử lý hàng loạt nhiều ảnh JPG, PNG, WebP cùng lúc</li>
+              <li><span class="check-dot">✓</span>Dán nhanh từ clipboard (Ctrl+V) và kéo so sánh Trước / Sau</li>
+            </ul>
+            <a href="./dev-preview.html" class="btn btn-primary" style="margin-top: auto;">Mở công cụ Xóa Ảnh →</a>
+          </div>
+
+          <div class="product-card">
+            <div class="product-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2.5"></rect>
+                <polygon points="10 8.5 16 12 10 15.5" fill="currentColor" stroke="none"></polygon>
+              </svg>
+            </div>
+            <h3>Xóa logo Video Gemini / Veo</h3>
+            <p>Giải mã và xử lý từng khung hình video ngay trên trình duyệt bằng WebCodecs &amp; AI FDnCNN tăng tốc WebGPU.</p>
+            <ul class="check-list">
+              <li><span class="check-dot">✓</span>Hỗ trợ logo ngôi sao Gemini lẫn chữ Veo ở mọi độ phân giải</li>
+              <li><span class="check-dot">✓</span>Hàng đợi xử lý hàng loạt nhiều video MP4, WebM, MOV</li>
+              <li><span class="check-dot">✓</span>Giữ nguyên track âm thanh gốc, xuất MP4 chất lượng cao</li>
+            </ul>
+            <a href="./video-preview.html" class="btn btn-dark" style="margin-top: auto;">Mở công cụ Xóa Video →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="section section-alt">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-eyebrow">Ưu điểm vượt trội</div>
+          <h2>Vì sao người dùng chọn ClearMark AI?</h2>
+          <p>Tối ưu riêng cho đặc trưng đồ họa của ảnh và video tạo bởi Gemini &amp; Veo, mang lại kết quả sạch mịn tự nhiên.</p>
+        </div>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Trí tuệ nhân tạo FDnCNN</h3>
+            <p>Không chỉ trừ màu cơ bản, AI FDnCNN tự động dọn sạch viền răng cưa và quầng sáng mờ do nén JPEG/H.264.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Xóa sạch 2+ logo cùng lúc</h3>
+            <p>Tự động quét lặp nhiều vùng để gỡ sạch cả logo cũ còn sót khi ảnh đã qua nhiều lần chỉnh sửa hoặc cắt cúp.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Riêng tư &amp; An toàn tuyệt đối</h3>
+            <p>Tệp của bạn không bao giờ rời khỏi máy tính hay điện thoại. Không lưu trữ, không thu thập dữ liệu.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Xử lý hàng loạt siêu nhanh</h3>
+            <p>Kéo thả cả thư mục ảnh hoặc nhiều video cùng lúc vào hàng đợi và tải kết quả về chỉ với vài cú chạm.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Tối ưu cho Điện thoại &amp; PC</h3>
+            <p>Giao diện phản hồi linh hoạt trên mọi kích thước màn hình, hỗ trợ vuốt cảm ứng so sánh mượt mà trên di động.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Tự động hóa bằng Userscript</h3>
+            <p>Cài thêm Userscript để tự động làm sạch ảnh ngay lúc bạn tải hoặc sao chép trực tiếp trên trang web Gemini.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-eyebrow">Quy trình đơn giản</div>
+          <h2>Hoàn thành chỉ trong 3 bước</h2>
+        </div>
+
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-num">01</div>
+            <h3>Chọn hoặc kéo thả tệp</h3>
+            <p>Mở công cụ Ảnh hoặc Video, chọn 1 hay nhiều tệp từ máy tính/điện thoại hoặc dán ảnh trực tiếp bằng Ctrl+V.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">02</div>
+            <h3>AI tự động xóa sạch logo</h3>
+            <p>Hệ thống tự xác định tọa độ, kích thước logo (kể cả 2+ logo) và khôi phục bề mặt nền sắc nét bằng AI FDnCNN.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">03</div>
+            <h3>So sánh &amp; Tải về ngay</h3>
+            <p>Kéo thanh trượt kiểm tra trực tiếp Trước / Sau và bấm tải xuống tệp PNG hoặc MP4 sạch hoàn toàn.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="section section-alt">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-eyebrow">Câu hỏi thường gặp</div>
+          <h2>Giải đáp nhanh cho bạn</h2>
+        </div>
+
+        <div class="faq-list">
+          <details class="faq-item" open>
+            <summary>Ảnh bị dính 2 logo Gemini hoặc logo chồng lên nhau có xóa sạch được không?</summary>
+            <p>Có. Hệ thống được trang bị bộ quét đa vùng tự động (hỗ trợ tối đa 4 vùng logo trên cùng một ảnh) và cơ chế bóc tách 2 lớp logo chồng khít tại cùng vị trí, kết hợp làm sạch viền bằng AI FDnCNN.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Ảnh và video của tôi có bị tải lên máy chủ không?</summary>
+            <p>Hoàn toàn không. Mọi bước giải mã, suy luận AI (ONNX WebGPU/WASM) và xuất tệp đều diễn ra 100% cục bộ trong trình duyệt trên thiết bị của bạn.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Video sau khi xóa logo có bị mất âm thanh hoặc giảm chất lượng không?</summary>
+            <p>Không. Track âm thanh gốc tương thích MP4 được giữ nguyên hoàn toàn không mã hóa lại, còn video được xuất ở bitrate cao (mặc định 12 Mbps) giữ nguyên độ sắc nét.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Tôi có thể dùng công cụ này trên điện thoại không?</summary>
+            <p>Có. Giao diện được thiết kế responsive đầy đủ cho điện thoại và máy tính bảng, có thanh chuyển chế độ Ảnh/Video ở cạnh dưới màn hình và hỗ trợ vuốt cảm ứng mượt mà.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="cta-banner">
+          <h2>Sẵn sàng làm sạch ảnh &amp; video của bạn?</h2>
+          <p>Trải nghiệm ngay tốc độ xử lý tức thì bằng AI cục bộ — hoàn toàn miễn phí, không giới hạn và không cần tạo tài khoản.</p>
+          <div class="cta-actions">
+            <a href="./dev-preview.html" class="btn btn-primary">Xóa logo Ảnh ngay →</a>
+            <a href="./video-preview.html" class="btn btn-white">Xóa logo Video</a>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span>© ClearMark AI — Công cụ xóa logo Ảnh &amp; Video xử lý cục bộ trên trình duyệt.</span>
+      <div class="footer-links">
+        <a href="./dev-preview.html">Xóa logo Ảnh</a>
+        <a href="./video-preview.html">Xóa logo Video</a>
+        <a href="userscript/gemini-watermark-remover.user.js" target="_blank">Userscript</a>
+      </div>
+    </div>
+  </footer>
+
+  <nav class="mobile-bottom-nav" aria-label="Điều hướng di động">
+    <a href="./index.html" class="mobile-nav-item active" aria-current="page">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Trang chủ</span>
+    </a>
+    <a href="./dev-preview.html" class="mobile-nav-item">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+        <polyline points="21 15 16 10 5 21"></polyline>
+      </svg>
+      <span>Xóa Ảnh</span>
+    </a>
+    <a href="./video-preview.html" class="mobile-nav-item">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2.5"></rect>
+        <polygon points="10 8.5 16 12 10 15.5" fill="currentColor" stroke="none"></polygon>
+      </svg>
+      <span>Xóa Video</span>
+    </a>
+  </nav>
 </body>
 </html>
