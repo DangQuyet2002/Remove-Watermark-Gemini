@@ -1258,6 +1258,75 @@ test('collectInitialWatermarkCandidates should not rescue an exact 768x1376 imag
     assert.equal(result.hypotheses.length, 0);
 });
 
+test('collectInitialWatermarkCandidates should recover a localized 52px V2 mark at 102px margins', () => {
+    const imageData = createFlatImageData(768, 1376, 112);
+    const alpha52V2 = interpolateAlphaMap(
+        getEmbeddedAlphaMap('36-v2'),
+        36,
+        52
+    );
+    const position = {
+        x: 614,
+        y: 1222,
+        width: 52,
+        height: 52
+    };
+    applyWhiteWatermark(imageData, alpha52V2, position);
+
+    const result = collectInitialWatermarkCandidates(
+        createV2MediumCollectionInput(imageData, () => ({
+            selectedTrial: null,
+            candidatePool: [],
+            source: 'skipped',
+            decisionTier: 'insufficient'
+        }))
+    );
+
+    assert.equal(result.presenceConfirmed, false);
+    assert.equal(result.bestEffortFallback, true);
+    assert.equal(result.bestEffortReason, 'exact-v2-52-r102-source-witness');
+    assert.equal(result.hypotheses.length, 1);
+    const trial = result.hypotheses[0].trial;
+    assert.deepEqual(trial.position, position);
+    assert.deepEqual(trial.config, {
+        logoSize: 52,
+        marginRight: 102,
+        marginBottom: 102,
+        alphaVariant: 'v2'
+    });
+    assert.equal(trial.alphaGain, 1);
+    assert.equal(trial.provenance.sourceWitnessRescue, true);
+    assert.ok(trial.provenance.sourceWitnessGate.spatialSignedTarget > 0);
+    assert.ok(trial.provenance.sourceWitnessGate.gradientPercentile >= 0.9);
+});
+
+test('collectInitialWatermarkCandidates should reject inverse-polarity 52px V2 content', () => {
+    const imageData = createFlatImageData(768, 1376, 200);
+    const alpha52V2 = interpolateAlphaMap(
+        getEmbeddedAlphaMap('36-v2'),
+        36,
+        52
+    );
+    applyBlackWatermark(imageData, alpha52V2, {
+        x: 614,
+        y: 1222,
+        width: 52,
+        height: 52
+    });
+
+    const result = collectInitialWatermarkCandidates(
+        createV2MediumCollectionInput(imageData, () => ({
+            selectedTrial: null,
+            candidatePool: [],
+            source: 'skipped',
+            decisionTier: 'insufficient'
+        }))
+    );
+
+    assert.equal(result.bestEffortFallback, false);
+    assert.equal(result.hypotheses.length, 0);
+});
+
 test('collectInitialWatermarkCandidates should only replace a sufficiently strong 36px V2 prior with the medium rescue', () => {
     const imageData = createFlatImageData(768, 1376, 72);
     const alpha36V2 = getEmbeddedAlphaMap('36-v2');
